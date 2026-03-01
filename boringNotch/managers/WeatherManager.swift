@@ -1,0 +1,194 @@
+//
+//  WeatherManager.swift
+//  boringNotch
+//
+//  Fetches current weather using Open-Meteo (no API key required) + CoreLocation.
+//
+
+import Combine
+import CoreLocation
+import Foundation
+import SwiftUI
+
+enum WeatherCondition: String {
+    case clear, partlyCloudy, overcast, fog
+    case drizzle, rain, heavyRain
+    case snow, heavySnow
+    case thunderstorm
+    case unknown
+
+    var sfSymbol: String {
+        switch self {
+        case .clear: return "sun.max.fill"
+        case .partlyCloudy: return "cloud.sun.fill"
+        case .overcast: return "cloud.fill"
+        case .fog: return "cloud.fog.fill"
+        case .drizzle: return "cloud.drizzle.fill"
+        case .rain: return "cloud.rain.fill"
+        case .heavyRain: return "cloud.heavyrain.fill"
+        case .snow: return "cloud.snow.fill"
+        case .heavySnow: return "cloud.snow.fill"
+        case .thunderstorm: return "cloud.bolt.rain.fill"
+        case .unknown: return "cloud.fill"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .clear: return "Clear"
+        case .partlyCloudy: return "Partly Cloudy"
+        case .overcast: return "Overcast"
+        case .fog: return "Fog"
+        case .drizzle: return "Drizzle"
+        case .rain: return "Rain"
+        case .heavyRain: return "Heavy Rain"
+        case .snow: return "Snow"
+        case .heavySnow: return "Heavy Snow"
+        case .thunderstorm: return "Thunderstorm"
+        case .unknown: return "Unknown"
+        }
+    }
+
+    var hasParticles: Bool {
+        switch self {
+        case .drizzle, .rain, .heavyRain, .snow, .heavySnow, .thunderstorm:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var isSnow: Bool {
+        self == .snow || self == .heavySnow
+    }
+
+    var particleIntensity: Double {
+        switch self {
+        case .drizzle: return 0.3
+        case .rain: return 0.6
+        case .heavyRain, .thunderstorm: return 1.0
+        case .snow: return 0.4
+        case .heavySnow: return 0.8
+        default: return 0
+        }
+    }
+
+    static func from(wmoCode: Int) -> WeatherCondition {
+        switch wmoCode {
+        case 0: return .clear
+        case 1, 2: return .partlyCloudy
+        case 3: return .overcast
+        case 45, 48: return .fog
+        case 51, 53: return .drizzle
+        case 55, 61, 63: return .rain
+        case 65, 80, 81, 82: return .heavyRain
+        case 71, 73, 77, 85: return .snow
+        case 75, 86: return .heavySnow
+        case 95, 96, 99: return .thunderstorm
+        default: return .unknown
+        }
+    }
+}
+
+struct WeatherData {
+    var temperature: Double = 0
+    var condition: WeatherCondition = .unknown
+    var cityName: String = ""
+    var isLoaded: Bool = false
+}
+
+@MainActor
+class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    static let shared = WeatherManager()
+
+    @Published var weather = WeatherData()
+    @Published var locationAuthorized = false
+
+    private let locationManager = CLLocationManager()
+    private var lastFetchLocation: CLLocation?
+    private var fetchTimer: Timer?
+    private let geocoder = CLGeocoder()
+
+    override init() {
+        super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+    }
+
+    func startMonitoring() {
+        let status = locationManager.authorizationStatus
+        if status == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
+        } else if status == .authorizedAlways || status == .authorized {
+            locationAuthorized = true
+            locationManager.startUpdatingLocation()
+        }
+
+        fetchTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.locationManager.startUpdatingLocation()
+            }
+        }
+    }
+
+    func stopMonitoring() {
+        fetchTimer?.invalidate()
+        fetchTimer = nil
+        locationManager.stopUpdatingLocation()
+    }
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        Task { @MainActor in
+            let status = manager.authorizationStatus
+            locationAuthorized = (status == .authorizedAlways || status == .authorized)
+            if locationAuthorized {
+                locationManager.startUpdatingLocation()
+            }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+
+        Task { @MainActor in
+            if let last = lastFetchLocation, location.distance(from: last) < 1000 && weather.isLoaded {
+                locationManager.stopUpdatingLocation()
+                return
+            }
+            lastFetchLocation = location
+            locationManager.stopUpdatingLocation()
+            await fetchWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            reverseGeocode(location)
+        }
+    }
+
+    private func reverseGeocode(_ location: CLLocation) {
+        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, _ in
+            Task { @MainActor [weak self] in
+                if let city = placemarks?.first?.locality {
+                    self?.weather.cityName = city
+                }
+            }
+        }
+    }
+
+    private func fetchWeather(latitude: Double, longitude: Double) async {
+        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&current=temperature_2m,weather_code"
+        guard let url = URL(string: urlString) else { return }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let current = json["current"] as? [String: Any],
+               let temp = current["temperature_2m"] as? Double,
+               let code = current["weather_code"] as? Int
+            {
+                weather.temperature = temp
+                weather.condition = WeatherCondition.from(wmoCode: code)
+                weather.isLoaded = true
+            }
+        } catch {
+            // Silently fail - weather is supplementary info
+        }
+    }
+}
