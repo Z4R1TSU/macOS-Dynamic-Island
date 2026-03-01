@@ -141,7 +141,9 @@ struct PomodoroClosedView: View {
 
                 Text(pomodoro.formattedTime)
                     .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
+                    .shimmerGradientForeground()
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(.smooth(duration: 0.4), value: pomodoro.formattedTime)
                     .lineLimit(1)
             }
             .fixedSize()
@@ -155,11 +157,13 @@ struct PomodoroClosedView: View {
             .foregroundStyle(pomodoro.stateColor)
     }
 
-    /// Right half for flanking layout: time text
+    /// Right half for flanking layout: time text — gradient shimmer + countdown digit transition
     var rightContent: some View {
         Text(pomodoro.formattedTime)
             .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-            .foregroundStyle(.white)
+            .shimmerGradientForeground()
+            .contentTransition(.numericText(countsDown: true))
+            .animation(.smooth(duration: 0.4), value: pomodoro.formattedTime)
             .lineLimit(1)
             .fixedSize()
     }

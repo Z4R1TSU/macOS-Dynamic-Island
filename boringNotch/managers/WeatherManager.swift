@@ -51,19 +51,24 @@ enum WeatherCondition: String {
 
     var hasParticles: Bool {
         switch self {
-        case .drizzle, .rain, .heavyRain, .snow, .heavySnow, .thunderstorm:
+        case .clear, .partlyCloudy, .overcast, .fog,
+             .drizzle, .rain, .heavyRain,
+             .snow, .heavySnow, .thunderstorm:
             return true
-        default:
+        case .unknown:
             return false
         }
     }
 
-    var isSnow: Bool {
-        self == .snow || self == .heavySnow
-    }
+    var isSnow: Bool { self == .snow || self == .heavySnow }
+    var isSunny: Bool { self == .clear || self == .partlyCloudy }
+    var isCloudy: Bool { self == .overcast || self == .fog }
 
     var particleIntensity: Double {
         switch self {
+        case .clear: return 0.3
+        case .partlyCloudy: return 0.2
+        case .overcast, .fog: return 0.25
         case .drizzle: return 0.3
         case .rain: return 0.6
         case .heavyRain, .thunderstorm: return 1.0

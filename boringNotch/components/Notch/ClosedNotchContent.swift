@@ -31,6 +31,18 @@ struct ClosedNotchWidgetBar: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject private var pomodoroManager = PomodoroManager.shared
     @ObservedObject private var marketManager = MarketManager.shared
+    @State private var marketDisplayIndex: Int = 0
+    @State private var cycleTimer: Timer?
+
+    private var loadedAssets: [MarketAsset] {
+        marketManager.assets.filter(\.isLoaded)
+    }
+
+    private var currentMarketAsset: MarketAsset? {
+        let assets = loadedAssets
+        guard !assets.isEmpty else { return nil }
+        return assets[marketDisplayIndex % assets.count]
+    }
 
     var body: some View {
         let showPom = closedWidgetShowPomodoro()
@@ -42,38 +54,44 @@ struct ClosedNotchWidgetBar: View {
                 .frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
         } else if widgetCount == 1 {
             singleWidgetFlankingLayout(showPom: showPom, showMkt: showMkt)
+                .onAppear { if showMkt { startCycling() } }
+                .onDisappear { stopCycling() }
         } else {
             twoWidgetFlankingLayout
+                .onAppear { startCycling() }
+                .onDisappear { stopCycling() }
         }
     }
 
-    /// Single widget: split icon (left) | notch gap | data (right) — like MusicLiveActivity
+    /// Single widget: left (icon+symbol) | notch gap | right (price+arrow)
     @ViewBuilder
     private func singleWidgetFlankingLayout(showPom: Bool, showMkt: Bool) -> some View {
         HStack(spacing: 0) {
-            if showPom {
-                PomodoroClosedView().leftContent
-                    .padding(.trailing, 8)
-            } else if showMkt {
-                MarketClosedIndicatorView().leftContent
-                    .padding(.trailing, 8)
+            Group {
+                if showPom {
+                    PomodoroClosedView().leftContent
+                } else if showMkt, let asset = currentMarketAsset {
+                    marketLeftLabel(asset: asset)
+                }
             }
+            .padding(.trailing, 8)
 
             Rectangle().fill(.black)
                 .frame(width: vm.closedNotchSize.width - cornerRadiusInsets.closed.top)
 
-            if showPom {
-                PomodoroClosedView().rightContent
-                    .padding(.leading, 8)
-            } else if showMkt {
-                MarketClosedIndicatorView().rightContent
-                    .padding(.leading, 8)
+            Group {
+                if showPom {
+                    PomodoroClosedView().rightContent
+                } else if showMkt, let asset = currentMarketAsset {
+                    marketRightPrice(asset: asset)
+                }
             }
+            .padding(.leading, 8)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
     }
 
-    /// Two widgets: whole widget (left) | notch gap | whole widget (right)
+    /// Two widgets: pomodoro (left) | notch gap | market (right)
     private var twoWidgetFlankingLayout: some View {
         HStack(spacing: 0) {
             PomodoroClosedView()
@@ -82,10 +100,91 @@ struct ClosedNotchWidgetBar: View {
             Rectangle().fill(.black)
                 .frame(width: vm.closedNotchSize.width - cornerRadiusInsets.closed.top)
 
-            MarketClosedIndicatorView()
-                .padding(.leading, 10)
+            if let asset = currentMarketAsset {
+                marketPill(asset: asset)
+                    .padding(.leading, 10)
+            }
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    /// Left side: icon + symbol (pure text, no arrows)
+    @ViewBuilder
+    private func marketLeftLabel(asset: MarketAsset) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.gray)
+            Text(asset.symbol)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+        }
+        .fixedSize()
+        .id("left-\(asset.id)")
+        .transition(.opacity.animation(.smooth(duration: 0.5)))
+    }
+
+    /// Right side: price + change arrow — gradient shimmer + digit-by-digit transition
+    @ViewBuilder
+    private func marketRightPrice(asset: MarketAsset) -> some View {
+        HStack(spacing: 4) {
+            Text(asset.compactPrice)
+                .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
+                .shimmerGradientForeground()
+                .contentTransition(.numericText())
+                .animation(.smooth(duration: 0.6), value: asset.compactPrice)
+            Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
+                .font(.system(size: 6, weight: .bold))
+                .foregroundStyle(asset.changeColor)
+        }
+        .fixedSize()
+        .id("right-\(asset.id)")
+        .transition(.opacity.animation(.smooth(duration: 0.5)))
+    }
+
+    /// Market pill (two-widget mode): icon + symbol + price + arrow
+    @ViewBuilder
+    private func marketPill(asset: MarketAsset) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.gray)
+            Text(asset.symbol)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundStyle(.gray)
+            Text(asset.compactPrice)
+                .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
+                .shimmerGradientForeground()
+                .contentTransition(.numericText())
+                .animation(.smooth(duration: 0.6), value: asset.compactPrice)
+            Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
+                .font(.system(size: 6, weight: .bold))
+                .foregroundStyle(asset.changeColor)
+        }
+        .fixedSize()
+        .id(asset.id)
+        .transition(.opacity.animation(.smooth(duration: 0.5)))
+    }
+
+    private func startCycling() {
+        stopCycling()
+        let count = loadedAssets.count
+        guard count > 1 else { return }
+        cycleTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
+            Task { @MainActor in
+                let c = loadedAssets.count
+                guard c > 0 else { return }
+                withAnimation(.smooth(duration: 0.6)) {
+                    marketDisplayIndex = (marketDisplayIndex + 1) % c
+                }
+            }
+        }
+    }
+
+    private func stopCycling() {
+        cycleTimer?.invalidate()
+        cycleTimer = nil
     }
 }
 

@@ -58,29 +58,54 @@ struct WeatherCalendarView: View {
 
     private var weatherColumn: some View {
         VStack(spacing: 6) {
-            Image(systemName: weatherManager.weather.condition.sfSymbol)
-                .font(.system(size: 24))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.white)
-                .conditionalModifier(useLiquidGlass) { $0.glassIcon() }
+            if !weatherManager.locationAuthorized && weatherManager.weather.cityName.isEmpty {
+                Image(systemName: "location.slash.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.gray)
 
-            Text("\(Int(weatherManager.weather.temperature.rounded()))°")
-                .font(.system(size: 18, weight: .medium, design: .rounded))
-                .adaptiveText(isGlass: useLiquidGlass)
-
-            if !weatherManager.weather.cityName.isEmpty {
-                Text(weatherManager.weather.cityName)
-                    .font(.system(size: 10))
+                Text("Location")
+                    .font(.system(size: 10, weight: .medium))
                     .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.6)) }
+                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
+
+                Button {
+                    weatherManager.startMonitoring()
+                } label: {
+                    Text("Allow")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule().fill(Color.white.opacity(useLiquidGlass ? 0.15 : 0.1))
+                        )
+                }
+                .buttonStyle(.plain)
+            } else {
+                Image(systemName: weatherManager.weather.condition.sfSymbol)
+                    .font(.system(size: 24))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.white)
+                    .conditionalModifier(useLiquidGlass) { $0.glassIcon() }
+
+                Text("\(Int(weatherManager.weather.temperature.rounded()))°")
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                    .adaptiveText(isGlass: useLiquidGlass)
+
+                if !weatherManager.weather.cityName.isEmpty {
+                    Text(weatherManager.weather.cityName)
+                        .font(.system(size: 10))
+                        .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                        .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.6)) }
+                        .lineLimit(1)
+                }
+
+                Text(weatherManager.weather.condition.description)
+                    .font(.system(size: 9))
+                    .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
                     .lineLimit(1)
             }
-
-            Text(weatherManager.weather.condition.description)
-                .font(.system(size: 9))
-                .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
-                .lineLimit(1)
         }
     }
 
@@ -116,7 +141,49 @@ struct WeatherCalendarView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 3))
             }
 
-            if let event = nextEvent {
+            if calendarManager.calendarAuthorizationStatus == .denied
+                || calendarManager.calendarAuthorizationStatus == .restricted
+            {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("No access")
+                        .font(.system(size: 10))
+                        .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                        .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
+                    Button {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        Text("Grant Access")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule().fill(Color.white.opacity(useLiquidGlass ? 0.15 : 0.1))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else if calendarManager.calendarAuthorizationStatus == .notDetermined {
+                Button {
+                    Task { await calendarManager.checkCalendarAuthorization() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 9))
+                        Text("Allow Calendar")
+                            .font(.system(size: 9, weight: .medium))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill(Color.white.opacity(useLiquidGlass ? 0.15 : 0.1))
+                    )
+                }
+                .buttonStyle(.plain)
+            } else if let event = nextEvent {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Color(event.calendar.color))
@@ -185,7 +252,9 @@ struct WeatherParticleView: View {
     @State private var particles: [Particle] = []
     @State private var animationTimer: Timer?
 
-    private let maxParticles: Int = 60
+    private var maxParticles: Int {
+        condition.isSunny ? 15 : condition.isCloudy ? 8 : 60
+    }
 
     struct Particle: Identifiable {
         let id = UUID()
@@ -195,6 +264,7 @@ struct WeatherParticleView: View {
         var opacity: Double
         var length: CGFloat
         var drift: CGFloat
+        var phase: CGFloat = 0
     }
 
     var body: some View {
@@ -202,6 +272,10 @@ struct WeatherParticleView: View {
             for particle in particles {
                 if condition.isSnow {
                     drawSnowflake(context: context, particle: particle, size: size)
+                } else if condition.isSunny {
+                    drawSparkle(context: context, particle: particle, size: size)
+                } else if condition.isCloudy {
+                    drawCloudDrift(context: context, particle: particle, size: size)
                 } else {
                     drawRaindrop(context: context, particle: particle, size: size)
                 }
@@ -211,6 +285,7 @@ struct WeatherParticleView: View {
         .onDisappear { stopAnimation() }
         .onChange(of: condition) { _, _ in
             particles.removeAll()
+            startAnimation()
         }
     }
 
@@ -231,18 +306,56 @@ struct WeatherParticleView: View {
         context.fill(Ellipse().path(in: rect), with: .color(.white.opacity(particle.opacity)))
     }
 
+    private func drawSparkle(context: GraphicsContext, particle: Particle, size: CGSize) {
+        let x = particle.x * size.width
+        let y = particle.y * size.height
+        let pulse = (sin(particle.phase) + 1) / 2
+        let r = particle.length * 0.15 * (0.5 + pulse * 0.5)
+        let alpha = particle.opacity * (0.3 + pulse * 0.7)
+        let color = Color(hue: 0.12, saturation: 0.15, brightness: 1.0)
+        let rect = CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)
+        context.fill(Ellipse().path(in: rect), with: .color(color.opacity(alpha)))
+        let glowRect = rect.insetBy(dx: -r * 0.6, dy: -r * 0.6)
+        context.fill(Ellipse().path(in: glowRect), with: .color(color.opacity(alpha * 0.2)))
+    }
+
+    private func drawCloudDrift(context: GraphicsContext, particle: Particle, size: CGSize) {
+        let x = particle.x * size.width
+        let y = particle.y * size.height
+        let w = particle.length * 3
+        let h = particle.length * 1.2
+        let rect = CGRect(x: x - w / 2, y: y - h / 2, width: w, height: h)
+        context.fill(
+            RoundedRectangle(cornerRadius: h / 2).path(in: rect),
+            with: .color(.white.opacity(particle.opacity * 0.4))
+        )
+    }
+
     private func startAnimation() {
         let intensity = condition.particleIntensity
-        let count = Int(Double(maxParticles) * intensity)
+        let count = Int(Double(maxParticles) * max(intensity, 0.2))
 
         particles = (0..<count).map { _ in
             Particle(
                 x: CGFloat.random(in: 0...1),
-                y: CGFloat.random(in: -0.3...1),
-                speed: CGFloat.random(in: 0.005...0.015) * CGFloat(intensity + 0.5),
-                opacity: Double.random(in: 0.15...0.5),
+                y: condition.isSunny || condition.isCloudy
+                    ? CGFloat.random(in: 0...1)
+                    : CGFloat.random(in: -0.3...1),
+                speed: condition.isSunny
+                    ? 0
+                    : condition.isCloudy
+                        ? CGFloat.random(in: 0.0005...0.001)
+                        : CGFloat.random(in: 0.005...0.015) * CGFloat(intensity + 0.5),
+                opacity: condition.isSunny
+                    ? Double.random(in: 0.3...0.8)
+                    : condition.isCloudy
+                        ? Double.random(in: 0.03...0.08)
+                        : Double.random(in: 0.15...0.5),
                 length: CGFloat.random(in: 4...12),
-                drift: CGFloat.random(in: -0.002...0.002)
+                drift: condition.isCloudy
+                    ? CGFloat.random(in: 0.0005...0.002)
+                    : CGFloat.random(in: -0.002...0.002),
+                phase: CGFloat.random(in: 0...(2 * .pi))
             )
         }
 
@@ -260,12 +373,22 @@ struct WeatherParticleView: View {
 
     private func updateParticles() {
         for i in particles.indices {
-            particles[i].y += particles[i].speed
-            particles[i].x += particles[i].drift
-
-            if particles[i].y > 1.1 {
-                particles[i].y = CGFloat.random(in: -0.3 ... -0.05)
-                particles[i].x = CGFloat.random(in: 0...1)
+            if condition.isSunny {
+                particles[i].phase += CGFloat.random(in: 0.03...0.08)
+            } else if condition.isCloudy {
+                particles[i].x += particles[i].drift
+                particles[i].y += particles[i].speed
+                if particles[i].x > 1.3 {
+                    particles[i].x = -0.3
+                    particles[i].y = CGFloat.random(in: 0...1)
+                }
+            } else {
+                particles[i].y += particles[i].speed
+                particles[i].x += particles[i].drift
+                if particles[i].y > 1.1 {
+                    particles[i].y = CGFloat.random(in: -0.3 ... -0.05)
+                    particles[i].x = CGFloat.random(in: 0...1)
+                }
             }
         }
     }

@@ -70,4 +70,21 @@ extension View {
             self.foregroundStyle(.white)
         }
     }
+
+    /// Subtle linear gradient for closed-notch numeric displays (price tickers, timers).
+    /// Provides a left-to-right highlight sweep that feels premium without being distracting.
+    func shimmerGradientForeground() -> some View {
+        self.foregroundStyle(
+            LinearGradient(
+                stops: [
+                    .init(color: .white.opacity(0.55), location: 0),
+                    .init(color: .white, location: 0.45),
+                    .init(color: .white, location: 0.55),
+                    .init(color: .white.opacity(0.55), location: 1),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+    }
 }

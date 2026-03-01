@@ -2321,6 +2321,9 @@
         }
       }
     },
+    "Allow" : {
+
+    },
     "Allow Access" : {
       "localizations" : {
         "ar" : {
@@ -2420,6 +2423,9 @@
           }
         }
       }
+    },
+    "Allow Calendar" : {
+
     },
     "Always show full event titles" : {
       "localizations" : {
@@ -10436,6 +10442,9 @@
         }
       }
     },
+    "Grant Access" : {
+
+    },
     "Hide all-day events" : {
       "localizations" : {
         "ar" : {
@@ -12038,6 +12047,9 @@
       }
     },
     "Loading..." : {
+
+    },
+    "Location" : {
 
     },
     "Lottie JSON URL" : {
@@ -14542,6 +14554,9 @@
           }
         }
       }
+    },
+    "No access" : {
+
     },
     "No custom animation available" : {
       "localizations" : {

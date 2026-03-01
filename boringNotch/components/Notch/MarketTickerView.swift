@@ -199,20 +199,23 @@ struct MarketCompactWidget: View {
                     .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
                     .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
             } else {
-                HStack(spacing: 6) {
-                    ForEach(loaded.prefix(3)) { asset in
+                let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: min(loaded.count, 3))
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
+                    ForEach(loaded) { asset in
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(asset.symbol)
-                                .font(.system(size: 9, weight: .bold, design: .rounded))
-                                .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                                .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(.gray) }
-                            Text(asset.formattedPrice)
+                            HStack(spacing: 3) {
+                                Text(asset.symbol)
+                                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                                    .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(.gray) }
+                                Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                    .font(.system(size: 6, weight: .bold))
+                                    .foregroundStyle(asset.changeColor)
+                            }
+                            Text(asset.compactPrice)
                                 .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
                                 .adaptiveText(isGlass: useLiquidGlass)
                                 .contentTransition(.numericText())
-                        }
-                        if asset.id != loaded.prefix(3).last?.id {
-                            Divider().frame(height: 20).opacity(useLiquidGlass ? 0.4 : 0.3)
                         }
                     }
                 }
@@ -239,11 +242,7 @@ struct MarketClosedIndicatorView: View {
     }
 
     var body: some View {
-        let assets = loadedAssets
-        if !assets.isEmpty {
-            let safeIdx = assets.isEmpty ? 0 : displayIndex % assets.count
-            let asset = assets[safeIdx]
-
+        if let asset = currentAsset {
             HStack(spacing: 4) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 9, weight: .semibold))
@@ -252,25 +251,25 @@ struct MarketClosedIndicatorView: View {
                 Text(asset.symbol)
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .foregroundStyle(.gray)
-                    .contentTransition(.opacity)
                     .lineLimit(1)
 
                 Text(asset.compactPrice)
                     .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
+                    .shimmerGradientForeground()
                     .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.6), value: asset.compactPrice)
                     .lineLimit(1)
 
                 Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
                     .font(.system(size: 6, weight: .bold))
                     .foregroundStyle(asset.changeColor)
-                    .contentTransition(.opacity)
             }
             .fixedSize()
-            .animation(.easeInOut(duration: 0.5), value: safeIdx)
-            .onAppear { startCycling(count: assets.count) }
+            .id(asset.id)
+            .transition(.opacity.animation(.smooth(duration: 0.5)))
+            .onAppear { startCycling(count: loadedAssets.count) }
             .onDisappear { stopCycling() }
-            .onChange(of: assets.count) { newCount in
+            .onChange(of: loadedAssets.count) { newCount in
                 if displayIndex >= newCount { displayIndex = 0 }
                 startCycling(count: newCount)
             }
@@ -283,51 +282,14 @@ struct MarketClosedIndicatorView: View {
         return assets[displayIndex % assets.count]
     }
 
-    /// Left half for flanking layout: icon + symbol
-    @ViewBuilder
-    var leftContent: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.gray)
-            if let asset = currentAsset {
-                Text(asset.symbol)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.gray)
-                    .contentTransition(.opacity)
-                    .lineLimit(1)
-            }
-        }
-        .fixedSize()
-    }
-
-    /// Right half for flanking layout: price + arrow
-    @ViewBuilder
-    var rightContent: some View {
-        if let asset = currentAsset {
-            HStack(spacing: 3) {
-                Text(asset.compactPrice)
-                    .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .contentTransition(.numericText())
-                    .lineLimit(1)
-                Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
-                    .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(asset.changeColor)
-                    .contentTransition(.opacity)
-            }
-            .fixedSize()
-        }
-    }
-
     private func startCycling(count: Int) {
         stopCycling()
         guard count > 1 else { return }
-        cycleTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in
+        cycleTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
             Task { @MainActor in
                 let c = loadedAssets.count
                 guard c > 0 else { return }
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.smooth(duration: 0.8)) {
                     displayIndex = (displayIndex + 1) % c
                 }
             }

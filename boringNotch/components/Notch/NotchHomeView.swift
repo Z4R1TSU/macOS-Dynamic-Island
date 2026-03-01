@@ -432,8 +432,8 @@ struct NotchHomeView: View {
         Group {
             if !coordinator.firstLaunch {
                 VStack(spacing: 8) {
-                    mainContent
-                    widgetRow
+                    primaryRow
+                    secondaryWidgetRow
                 }
             }
         }
@@ -446,12 +446,17 @@ struct NotchHomeView: View {
 
     @Default(.homeWidgets) private var homeWidgets
 
-    private var activeWidgets: [HomeWidget] {
-        homeWidgets.filter(\.isEnabled)
+    private var secondaryWidgets: [HomeWidget] {
+        homeWidgets.filter { $0 != .calendar && $0.isEnabled }
     }
 
-    private var mainContent: some View {
-        HStack(alignment: .top, spacing: shouldShowCamera ? 10 : 15) {
+    private var showCalendar: Bool {
+        Defaults[.showCalendar]
+    }
+
+    /// Row 1: Music player + Calendar (fixed layout)
+    private var primaryRow: some View {
+        HStack(alignment: .top, spacing: 15) {
             MusicPlayerView(albumArtNamespace: albumArtNamespace)
 
             if shouldShowCamera {
@@ -460,25 +465,30 @@ struct NotchHomeView: View {
                     .opacity(vm.notchState == .closed ? 0 : 1)
                     .blur(radius: vm.notchState == .closed ? 20 : 0)
                     .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.76, blendDuration: 0), value: shouldShowCamera)
+            } else if showCalendar {
+                WeatherCalendarView()
+                    .environmentObject(vm)
+                    .frame(maxWidth: 260)
             }
         }
         .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
         .blur(radius: vm.notchState == .closed ? 30 : 0)
     }
 
-    private static let maxHomeWidgets = 4
+    private static let maxSecondaryWidgets = 4
 
+    /// Row 2: Other widgets (market, pomodoro, etc.)
     @ViewBuilder
-    private var widgetRow: some View {
-        let widgets = Array(activeWidgets.prefix(Self.maxHomeWidgets))
-        let overflow = activeWidgets.count > Self.maxHomeWidgets
+    private var secondaryWidgetRow: some View {
+        let widgets = Array(secondaryWidgets.prefix(Self.maxSecondaryWidgets))
+        let overflow = secondaryWidgets.count > Self.maxSecondaryWidgets
 
         if !widgets.isEmpty {
             VStack(spacing: 6) {
                 if widgets.count <= 2 {
                     HStack(spacing: 8) {
                         ForEach(widgets) { widget in
-                            homeWidgetView(for: widget)
+                            secondaryWidgetView(for: widget)
                                 .frame(maxWidth: .infinity)
                                 .transition(.opacity)
                         }
@@ -489,7 +499,7 @@ struct NotchHomeView: View {
 
                     HStack(spacing: 8) {
                         ForEach(row1) { widget in
-                            homeWidgetView(for: widget)
+                            secondaryWidgetView(for: widget)
                                 .frame(maxWidth: .infinity)
                                 .transition(.opacity)
                         }
@@ -497,7 +507,7 @@ struct NotchHomeView: View {
 
                     HStack(spacing: 8) {
                         ForEach(row2) { widget in
-                            homeWidgetView(for: widget)
+                            secondaryWidgetView(for: widget)
                                 .frame(maxWidth: .infinity)
                                 .transition(.opacity)
                         }
@@ -520,11 +530,10 @@ struct NotchHomeView: View {
     }
 
     @ViewBuilder
-    private func homeWidgetView(for widget: HomeWidget) -> some View {
+    private func secondaryWidgetView(for widget: HomeWidget) -> some View {
         switch widget {
         case .calendar:
-            WeatherCalendarView()
-                .environmentObject(vm)
+            EmptyView()
         case .market:
             MarketCompactWidget()
         case .pomodoro:
