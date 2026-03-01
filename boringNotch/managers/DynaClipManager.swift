@@ -36,6 +36,7 @@ class DynaClipManager: ObservableObject {
 
     private var navigationStack: [URL] = []
     private var forwardStack: [URL] = []
+    private var accessedURLs: Set<URL> = []
 
     var pinnedFolders: [URL] {
         get {
@@ -45,7 +46,9 @@ class DynaClipManager: ObservableObject {
             }
         }
         set {
-            Defaults[.pinnedClipFolders] = newValue.map { $0.path }
+            Defaults[.pinnedClipFolders] = newValue.map { url in
+                url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+            }
             objectWillChange.send()
         }
     }
@@ -66,18 +69,27 @@ class DynaClipManager: ObservableObject {
         let desktopPath = NSString(string: "~/Desktop").expandingTildeInPath
         currentDirectory = URL(fileURLWithPath: desktopPath)
 
-        // Ensure Desktop is pinned by default
         if Defaults[.pinnedClipFolders].isEmpty {
             Defaults[.pinnedClipFolders] = ["~/Desktop"]
         }
 
+        restoreBookmarks()
         loadDirectory()
     }
 
     func loadDirectory() {
         let fm = FileManager.default
+        let dir = currentDirectory.standardized
+
+        let didAccess = dir.startAccessingSecurityScopedResource()
+        defer { if didAccess { dir.stopAccessingSecurityScopedResource() } }
+
         do {
-            let urls = try fm.contentsOfDirectory(at: currentDirectory, includingPropertiesForKeys: [.isDirectoryKey, .effectiveIconKey], options: [.skipsHiddenFiles])
+            let urls = try fm.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
             items = urls.sorted { lhs, rhs in
                 let lhsDir = (try? lhs.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
                 let rhsDir = (try? rhs.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
@@ -96,7 +108,7 @@ class DynaClipManager: ObservableObject {
     func navigate(to url: URL) {
         navigationStack.append(currentDirectory)
         forwardStack.removeAll()
-        currentDirectory = url
+        currentDirectory = url.standardized
         searchQuery = ""
         loadDirectory()
     }
@@ -128,8 +140,11 @@ class DynaClipManager: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.prompt = "Add Folder"
         if panel.runModal() == .OK, let url = panel.url {
+            saveBookmark(for: url)
+
             var current = pinnedFolders
-            if !current.contains(url) {
+            let standardized = url.standardized
+            if !current.contains(where: { $0.standardized == standardized }) {
                 current.append(url)
                 pinnedFolders = current
             }
@@ -139,23 +154,89 @@ class DynaClipManager: ObservableObject {
 
     func removePinnedFolder(_ url: URL) {
         var current = pinnedFolders
-        current.removeAll { $0 == url }
+        current.removeAll { $0.standardized == url.standardized }
         if current.isEmpty {
             let desktopPath = NSString(string: "~/Desktop").expandingTildeInPath
             current = [URL(fileURLWithPath: desktopPath)]
         }
         pinnedFolders = current
-        if currentDirectory == url {
+        removeBookmark(for: url)
+        if currentDirectory.standardized == url.standardized {
             navigate(to: current.first!)
         }
     }
 
-    func copyFilesToClipFolder(_ urls: [URL]) {
+    func copyFilesToClipFolder(_ urls: [URL], destination: URL? = nil) {
+        let target = destination ?? currentDirectory
         let fm = FileManager.default
+        let didAccess = target.startAccessingSecurityScopedResource()
+        defer { if didAccess { target.stopAccessingSecurityScopedResource() } }
         for url in urls {
-            let dest = currentDirectory.appendingPathComponent(url.lastPathComponent)
+            let dest = target.appendingPathComponent(url.lastPathComponent)
             try? fm.copyItem(at: url, to: dest)
         }
-        loadDirectory()
+        if target.standardized == currentDirectory.standardized {
+            loadDirectory()
+        }
+    }
+
+    // MARK: - Security-Scoped Bookmarks
+
+    private var bookmarkStoreURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("boringNotch")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("FolderBookmarks.plist")
+    }
+
+    private func saveBookmark(for url: URL) {
+        guard let data = try? url.bookmarkData(
+            options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        ) else { return }
+
+        var store = loadBookmarkStore()
+        store[url.path] = data
+        saveBookmarkStore(store)
+    }
+
+    private func removeBookmark(for url: URL) {
+        var store = loadBookmarkStore()
+        store.removeValue(forKey: url.path)
+        saveBookmarkStore(store)
+    }
+
+    private func restoreBookmarks() {
+        let store = loadBookmarkStore()
+        for (_, data) in store {
+            var isStale = false
+            guard let url = try? URL(
+                resolvingBookmarkData: data,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ) else { continue }
+            if url.startAccessingSecurityScopedResource() {
+                accessedURLs.insert(url)
+            }
+        }
+    }
+
+    private func loadBookmarkStore() -> [String: Data] {
+        guard let data = try? Data(contentsOf: bookmarkStoreURL),
+              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Data] else {
+            return [:]
+        }
+        return dict
+    }
+
+    private func saveBookmarkStore(_ store: [String: Data]) {
+        guard let data = try? PropertyListSerialization.data(
+            fromPropertyList: store,
+            format: .binary,
+            options: 0
+        ) else { return }
+        try? data.write(to: bookmarkStoreURL)
     }
 }

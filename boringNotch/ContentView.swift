@@ -263,7 +263,9 @@ struct ContentView: View {
             anyDropDebounceTask?.cancel()
 
             if isTargeted {
-                coordinator.currentView = .drop
+                if coordinator.currentView != .drop {
+                    coordinator.currentView = .drop
+                }
                 if vm.notchState == .closed {
                     doOpen()
                 }
@@ -271,7 +273,7 @@ struct ContentView: View {
             }
 
             anyDropDebounceTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(500))
+                try? await Task.sleep(for: .milliseconds(800))
                 guard !Task.isCancelled else { return }
 
                 if vm.dropEvent {
@@ -280,7 +282,7 @@ struct ContentView: View {
                 }
 
                 vm.dropEvent = false
-                if !SharingStateManager.shared.preventNotchClose {
+                if coordinator.currentView == .drop && !SharingStateManager.shared.preventNotchClose {
                     vm.close()
                 }
             }
@@ -447,9 +449,8 @@ struct ContentView: View {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
-                .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
-                    return false
-                }
+                .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data],
+                        delegate: DragDetectorDelegate(isTargeted: $vm.dragDetectorTargeting))
         } else {
             EmptyView()
         }
@@ -503,7 +504,8 @@ struct ContentView: View {
                     }
                     
                     if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive
-                       && !SharingStateManager.shared.preventNotchClose {
+                       && !SharingStateManager.shared.preventNotchClose
+                       && !self.vm.anyDropZoneTargeting {
                         self.vm.close()
                     }
                 }
@@ -537,7 +539,7 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        let scrollLocked: Set<NotchViews> = [.settings, .translation, .market, .widgets, .clip]
+        let scrollLocked: Set<NotchViews> = [.settings, .translation, .market, .widgets, .clip, .drop]
         guard vm.notchState == .open && !vm.isHoveringCalendar
               && !scrollLocked.contains(coordinator.currentView) else { return }
 
@@ -585,6 +587,26 @@ struct FullScreenDropDelegate: DropDelegate {
         return true
     }
 
+}
+
+struct DragDetectorDelegate: DropDelegate {
+    @Binding var isTargeted: Bool
+
+    func dropEntered(info: DropInfo) {
+        isTargeted = true
+    }
+
+    func dropExited(info: DropInfo) {
+        isTargeted = false
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .copy)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        return false
+    }
 }
 
 struct GeneralDropTargetDelegate: DropDelegate {
