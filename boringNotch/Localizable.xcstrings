@@ -3736,6 +3736,9 @@
     "Boring Notch" : {
 
     },
+    "Built-in" : {
+
+    },
     "Calendar" : {
       "localizations" : {
         "ar" : {
@@ -5736,6 +5739,9 @@
         }
       }
     },
+    "Connected" : {
+
+    },
     "Continue" : {
       "localizations" : {
         "ar" : {
@@ -7242,6 +7248,9 @@
         }
       }
     },
+    "Disconnected" : {
+
+    },
     "Download" : {
       "localizations" : {
         "ar" : {
@@ -7743,6 +7752,9 @@
         }
       }
     },
+    "DynaClip" : {
+
+    },
     "Easily copy, store, and manage your most-used content. Upgrade now for advanced features like multi-item storage and quick access!" : {
       "localizations" : {
         "ar" : {
@@ -7942,6 +7954,9 @@
           }
         }
       }
+    },
+    "Empty folder" : {
+
     },
     "Enable blur effect behind album art" : {
       "localizations" : {
@@ -13759,6 +13774,9 @@
         }
       }
     },
+    "Mini file browser — always available" : {
+
+    },
     "Mirror" : {
       "localizations" : {
         "ar" : {
@@ -15063,6 +15081,9 @@
         }
       }
     },
+    "No results" : {
+
+    },
     "Not Now" : {
       "localizations" : {
         "ar" : {
@@ -16171,6 +16192,9 @@
           }
         }
       }
+    },
+    "Other…" : {
+
     },
     "Pick a Color" : {
       "localizations" : {
@@ -17475,6 +17499,9 @@
         }
       }
     },
+    "Remove Tab" : {
+
+    },
     "Replace system HUD" : {
       "localizations" : {
         "ar" : {
@@ -18176,6 +18203,12 @@
           }
         }
       }
+    },
+    "Save to folder" : {
+
+    },
+    "Search" : {
+
     },
     "Select the music source you want to use. You can change this later in the app settings." : {
       "localizations" : {

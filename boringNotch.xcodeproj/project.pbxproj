@@ -18,9 +18,14 @@
 		AA00000100000009AABB0009 /* MarketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000100000009AABB0099 /* MarketManager.swift */; };
 		AA0000010000000AAABB000A /* MarketTickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000AAABB00AA /* MarketTickerView.swift */; };
 		AA0000010000000BAABB000B /* PomodoroManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000BAABB00BB /* PomodoroManager.swift */; };
+		AADC00012EA1B0000001D001 /* DynaClipManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADC00022EA1B0000001D002 /* DynaClipManager.swift */; };
+		AAB000012EA1B0000001B001 /* BluetoothManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000022EA1B0000001B002 /* BluetoothManager.swift */; };
 		AA0000010000000CAABB000C /* WidgetHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000CAABB00CC /* WidgetHubView.swift */; };
 		AA0000010000000DAABB000D /* PomodoroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000DAABB00DD /* PomodoroView.swift */; };
 		AA0000010000000EAABB000E /* ClosedNotchContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000EAABB00EE /* ClosedNotchContent.swift */; };
+		AA0000010000000FAABB000F /* BluetoothExpandedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000FAABB00FF /* BluetoothExpandedView.swift */; };
+		AADCD0012EA1B0000001D003 /* DynaClipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADCD0022EA1B0000001D004 /* DynaClipView.swift */; };
+		AADCD0032EA1B0000001D005 /* DynamicDropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADCD0042EA1B0000001D006 /* DynamicDropView.swift */; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
 		110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */; };
 		1100292A2E8691B400035A57 /* FileShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029292E8691B400035A57 /* FileShareView.swift */; };
@@ -42,6 +47,7 @@
 		112B0EB82E30DD0F00562D6C /* MediaRemoteAdapterTestClient in Resources */ = {isa = PBXBuildFile; fileRef = 112B0EB52E30DD0F00562D6C /* MediaRemoteAdapterTestClient */; };
 		112B0EB92E30DD0F00562D6C /* mediaremote-adapter.pl in Resources */ = {isa = PBXBuildFile; fileRef = 112B0EB32E30DD0F00562D6C /* mediaremote-adapter.pl */; };
 		112B0EBB2E30DD5000562D6C /* MediaRemoteAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 112B0EBA2E30DD5000562D6C /* MediaRemoteAdapter.framework */; };
+		14D032202C689DC20096E6A3 /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14D031F02C689DC10096E6A2 /* IOBluetooth.framework */; };
 		112FB7352CCF16F70015238C /* NotchSpaceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112FB7342CCF16F70015238C /* NotchSpaceManager.swift */; };
 		1132E5122E777B6E0068732D /* YouTubeMusicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132E5102E777B6E0068732D /* YouTubeMusicModels.swift */; };
 		1132E5142E777B920068732D /* YouTubeMusicNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132E5132E777B920068732D /* YouTubeMusicNetworking.swift */; };
@@ -207,9 +213,14 @@
 		AA00000100000009AABB0099 /* MarketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketManager.swift; sourceTree = "<group>"; };
 		AA0000010000000AAABB00AA /* MarketTickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketTickerView.swift; sourceTree = "<group>"; };
 		AA0000010000000BAABB00BB /* PomodoroManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PomodoroManager.swift; sourceTree = "<group>"; };
+		AADC00022EA1B0000001D002 /* DynaClipManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynaClipManager.swift; sourceTree = "<group>"; };
+		AAB000022EA1B0000001B002 /* BluetoothManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManager.swift; sourceTree = "<group>"; };
 		AA0000010000000CAABB00CC /* WidgetHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetHubView.swift; sourceTree = "<group>"; };
 		AA0000010000000DAABB00DD /* PomodoroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PomodoroView.swift; sourceTree = "<group>"; };
 		AA0000010000000EAABB00EE /* ClosedNotchContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClosedNotchContent.swift; sourceTree = "<group>"; };
+		AA0000010000000FAABB00FF /* BluetoothExpandedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothExpandedView.swift; sourceTree = "<group>"; };
+		AADCD0022EA1B0000001D004 /* DynaClipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynaClipView.swift; sourceTree = "<group>"; };
+		AADCD0042EA1B0000001D006 /* DynamicDropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicDropView.swift; sourceTree = "<group>"; };
 		1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSItemProvider+LoadHelpers.swift"; sourceTree = "<group>"; };
 		110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStorageService.swift; sourceTree = "<group>"; };
 		110029292E8691B400035A57 /* FileShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShareView.swift; sourceTree = "<group>"; };
@@ -294,6 +305,7 @@
 		14CEF41E2C5CAED400855D72 /* boringNotch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = boringNotch.entitlements; sourceTree = "<group>"; };
 		14D031ED2C689DB70096E6A1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		14D031EF2C689DC00096E6A1 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
+		14D031F02C689DC10096E6A2 /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
 		14D570B82C5E98A20011E668 /* drop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = drop.swift; sourceTree = "<group>"; };
 		14D570BB2C5E98EB0011E668 /* generic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = generic.swift; sourceTree = "<group>"; };
 		14D570BF2C5EA5870011E668 /* AnimatedFace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedFace.swift; sourceTree = "<group>"; };
@@ -372,6 +384,7 @@
 				9A987A102C73CA8D005CA465 /* Collections in Frameworks */,
 				1194E8852EA57D23009C82D6 /* SkyLightWindow in Frameworks */,
 				112B0EBB2E30DD5000562D6C /* MediaRemoteAdapter.framework in Frameworks */,
+				14D032202C689DC20096E6A3 /* IOBluetooth.framework in Frameworks */,
 				14D0321D2C68F3350096E6A1 /* Sparkle in Frameworks */,
 				111BEA6F2ED166E20079DD4E /* MacroVisionKit in Frameworks */,
 				11F748732EC9DA9300F841DB /* Lottie in Frameworks */,
@@ -542,7 +555,9 @@
 			children = (
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
 				F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */,
+				AAB000022EA1B0000001B002 /* BluetoothManager.swift */,
 				112FB7342CCF16F70015238C /* NotchSpaceManager.swift */,
+				AADC00022EA1B0000001D002 /* DynaClipManager.swift */,
 				147163992C5D35FF0068B555 /* MusicManager.swift */,
 				149E0B962C737D00006418B1 /* WebcamManager.swift */,
 				14C08BB52C8DE42D000F8AA0 /* CalendarManager.swift */,
@@ -637,6 +652,7 @@
 			children = (
 				14D031EF2C689DC00096E6A1 /* ApplicationServices.framework */,
 				14D031ED2C689DB70096E6A1 /* IOKit.framework */,
+				14D031F02C689DC10096E6A2 /* IOBluetooth.framework */,
 				112B0EBA2E30DD5000562D6C /* MediaRemoteAdapter.framework */,
 			);
 			name = Frameworks;
@@ -755,6 +771,9 @@
 				AA0000010000000CAABB00CC /* WidgetHubView.swift */,
 				AA0000010000000DAABB00DD /* PomodoroView.swift */,
 				AA0000010000000EAABB00EE /* ClosedNotchContent.swift */,
+				AA0000010000000FAABB00FF /* BluetoothExpandedView.swift */,
+				AADCD0022EA1B0000001D004 /* DynaClipView.swift */,
+				AADCD0042EA1B0000001D006 /* DynamicDropView.swift */,
 			);
 			path = Notch;
 			sourceTree = "<group>";
@@ -961,9 +980,14 @@
 				AA00000100000009AABB0009 /* MarketManager.swift in Sources */,
 				AA0000010000000AAABB000A /* MarketTickerView.swift in Sources */,
 				AA0000010000000BAABB000B /* PomodoroManager.swift in Sources */,
+				AAB000012EA1B0000001B001 /* BluetoothManager.swift in Sources */,
+				AADC00012EA1B0000001D001 /* DynaClipManager.swift in Sources */,
 				AA0000010000000CAABB000C /* WidgetHubView.swift in Sources */,
 				AA0000010000000DAABB000D /* PomodoroView.swift in Sources */,
 				AA0000010000000EAABB000E /* ClosedNotchContent.swift in Sources */,
+				AA0000010000000FAABB000F /* BluetoothExpandedView.swift in Sources */,
+				AADCD0012EA1B0000001D003 /* DynaClipView.swift in Sources */,
+				AADCD0032EA1B0000001D005 /* DynamicDropView.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchHUD.swift in Sources */,
 				14C08BB92C8DE4B1000F8AA0 /* BoringCalendar.swift in Sources */,
 				5955950D2E900ED800C66711 /* ApplicationRelauncher.swift in Sources */,

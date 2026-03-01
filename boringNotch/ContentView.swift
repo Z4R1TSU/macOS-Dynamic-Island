@@ -79,6 +79,10 @@ struct ContentView: View {
             && vm.notchState == .closed
         {
             chinWidth = 400
+        } else if coordinator.expandingView.type == .bluetooth && coordinator.expandingView.show
+            && vm.notchState == .closed && Defaults[.enableBluetoothNotifications]
+        {
+            chinWidth = 400
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
@@ -219,7 +223,7 @@ struct ContentView: View {
                     .onChange(of: coordinator.currentView) { _, newView in
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             if vm.notchState == .open {
-                                let needsTall = (newView == .settings || newView == .translation || newView == .market || newView == .widgets)
+                                let needsTall = (newView == .settings || newView == .translation || newView == .market || newView == .widgets || newView == .clip)
                                 vm.notchSize = needsTall ? settingsNotchSize : openNotchSize
                             }
                         }
@@ -259,8 +263,8 @@ struct ContentView: View {
             anyDropDebounceTask?.cancel()
 
             if isTargeted {
+                coordinator.currentView = .drop
                 if vm.notchState == .closed {
-                    coordinator.currentView = .shelf
                     doOpen()
                 }
                 return
@@ -334,6 +338,12 @@ struct ContentView: View {
                           PomodoroExpandedClosedView()
                               .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
                               .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                      } else if coordinator.expandingView.type == .bluetooth && coordinator.expandingView.show
+                        && vm.notchState == .closed && Defaults[.enableBluetoothNotifications]
+                      {
+                          BluetoothExpandedView()
+                              .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+                              .transition(.opacity.combined(with: .scale(scale: 0.95)))
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .notification) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
@@ -402,6 +412,10 @@ struct ContentView: View {
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
                         ShelfView()
+                    case .clip:
+                        DynaClipView()
+                    case .drop:
+                        DynamicDropView()
                     case .settings:
                         NotchSettingsView()
                     case .translation:
@@ -422,7 +436,9 @@ struct ContentView: View {
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
             }
         }
-        .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
+        .conditionalModifier(coordinator.currentView != .drop) { view in
+            view.onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
+        }
     }
 
     @ViewBuilder
@@ -431,11 +447,9 @@ struct ContentView: View {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
-        .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
-            vm.dropEvent = true
-            ShelfStateViewModel.shared.load(providers)
-            return true
-        }
+                .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
+                    return false
+                }
         } else {
             EmptyView()
         }
@@ -523,7 +537,7 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        let scrollLocked: Set<NotchViews> = [.settings, .translation, .market, .widgets]
+        let scrollLocked: Set<NotchViews> = [.settings, .translation, .market, .widgets, .clip]
         guard vm.notchState == .open && !vm.isHoveringCalendar
               && !scrollLocked.contains(coordinator.currentView) else { return }
 

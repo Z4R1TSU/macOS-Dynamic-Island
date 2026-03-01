@@ -186,6 +186,12 @@ extension Defaults.Keys {
     // Option key modifier behaviour for media keys
     static let optionKeyAction = Key<OptionKeyAction>("optionKeyAction", default: OptionKeyAction.openSettings)
     
+    // MARK: DynaClip (Mini Finder)
+    static let pinnedClipFolders = Key<[String]>("pinnedClipFolders", default: ["~/Desktop"])
+
+    // MARK: Bluetooth
+    static let enableBluetoothNotifications = Key<Bool>("enableBluetoothNotifications", default: true)
+
     // MARK: Shelf
     static let boringShelf = Key<Bool>("boringShelf", default: true)
     static let openShelfByDefault = Key<Bool>("openShelfByDefault", default: true)

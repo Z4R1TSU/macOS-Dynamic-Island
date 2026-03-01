@@ -433,6 +433,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             MarketManager.shared.startMonitoring()
         }
 
+        BluetoothManager.shared.startMonitoring()
+
         if !Defaults[.showOnAllDisplays] {
             let viewModel = self.vm
             let window = createBoringNotchWindow(

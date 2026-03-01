@@ -431,10 +431,7 @@ struct NotchHomeView: View {
     var body: some View {
         Group {
             if !coordinator.firstLaunch {
-                VStack(spacing: 8) {
-                    primaryRow
-                    secondaryWidgetRow
-                }
+                primaryRow
             }
         }
         .transition(.opacity)

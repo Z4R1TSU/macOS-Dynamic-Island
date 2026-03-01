@@ -83,6 +83,10 @@ struct WidgetHubView: View {
                         ) { navigateTo(.translation) }
                     }
 
+                    widgetSection("Built-in") {
+                        dynaClipRow
+                    }
+
                     widgetSection("Media") {
                         widgetRow(
                             icon: "music.note",
@@ -168,6 +172,51 @@ struct WidgetHubView: View {
                 }
 
                 Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.gray.opacity(0.5))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var dynaClipRow: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                coordinator.currentView = .clip
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white)
+                    .conditionalModifier(useLiquidGlass) { $0.glassIcon() }
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("DynaClip")
+                        .font(.system(size: 12, weight: .semibold))
+                        .adaptiveText(isGlass: useLiquidGlass)
+                    Text("Mini file browser — always available")
+                        .font(.system(size: 10))
+                        .foregroundStyle(useLiquidGlass ? .white.opacity(0.65) : .gray)
+                }
+
+                Spacer()
+
+                Text("Built-in")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.gray.opacity(0.6))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(useLiquidGlass ? 0.1 : 0.06))
+                    )
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
