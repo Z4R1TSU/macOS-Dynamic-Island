@@ -28,7 +28,6 @@ public enum NotchViews {
     case home
     case shelf
     case clip
-    case drop
     case settings
     case translation
     case market

@@ -66,23 +66,65 @@ class DynaClipManager: ObservableObject {
     }
 
     private init() {
-        let desktopPath = NSString(string: "~/Desktop").expandingTildeInPath
-        currentDirectory = URL(fileURLWithPath: desktopPath)
+        let desktopURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
+        currentDirectory = desktopURL
 
         if Defaults[.pinnedClipFolders].isEmpty {
             Defaults[.pinnedClipFolders] = ["~/Desktop"]
         }
 
         restoreBookmarks()
+        promptForDesktopAccessIfNeeded()
         loadDirectory()
+    }
+
+    private func promptForDesktopAccessIfNeeded() {
+        let desktopURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
+
+        let store = loadBookmarkStore()
+        let hasDesktopBookmark = store.keys.contains(where: { path in
+            URL(fileURLWithPath: path).standardized == desktopURL.standardized
+        })
+        if hasDesktopBookmark { return }
+
+        let fm = FileManager.default
+        let canRead = fm.isReadableFile(atPath: desktopURL.path)
+        if canRead {
+            let testContents = try? fm.contentsOfDirectory(atPath: desktopURL.path)
+            if testContents != nil && !(testContents?.isEmpty ?? true) {
+                saveBookmark(for: desktopURL)
+                return
+            }
+        }
+
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = desktopURL
+        panel.prompt = "Grant Access"
+        panel.message = "DynaClip needs access to your Desktop folder to display files."
+        if panel.runModal() == .OK, let url = panel.url {
+            saveBookmark(for: url)
+            currentDirectory = url.standardized
+            let tilded = url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+            var pinned = Defaults[.pinnedClipFolders]
+            if !pinned.contains(tilded) {
+                pinned.insert(tilded, at: 0)
+                Defaults[.pinnedClipFolders] = pinned
+            }
+        }
     }
 
     func loadDirectory() {
         let fm = FileManager.default
         let dir = currentDirectory.standardized
 
-        let didAccess = dir.startAccessingSecurityScopedResource()
-        defer { if didAccess { dir.stopAccessingSecurityScopedResource() } }
+        let bookmarkURL = resolveBookmarkedURL(for: dir)
+        let didAccess = bookmarkURL?.startAccessingSecurityScopedResource() ?? false
+        defer { if didAccess { bookmarkURL?.stopAccessingSecurityScopedResource() } }
 
         do {
             let urls = try fm.contentsOfDirectory(
@@ -103,6 +145,28 @@ class DynaClipManager: ObservableObject {
         } catch {
             items = []
         }
+    }
+
+    /// Finds the closest ancestor bookmark URL for a given directory, so that
+    /// `startAccessingSecurityScopedResource()` grants access to subdirectories too.
+    private func resolveBookmarkedURL(for dir: URL) -> URL? {
+        if accessedURLs.contains(dir.standardized) { return dir }
+
+        let store = loadBookmarkStore()
+        var candidate: URL?
+        for (path, data) in store {
+            let storedURL = URL(fileURLWithPath: path).standardized
+            if dir.standardized.path.hasPrefix(storedURL.path) {
+                if candidate == nil || storedURL.path.count > candidate!.path.count {
+                    var isStale = false
+                    if let resolved = try? URL(resolvingBookmarkData: data, options: .withSecurityScope,
+                                               relativeTo: nil, bookmarkDataIsStale: &isStale) {
+                        candidate = resolved
+                    }
+                }
+            }
+        }
+        return candidate
     }
 
     func navigate(to url: URL) {
@@ -169,8 +233,9 @@ class DynaClipManager: ObservableObject {
     func copyFilesToClipFolder(_ urls: [URL], destination: URL? = nil) {
         let target = destination ?? currentDirectory
         let fm = FileManager.default
-        let didAccess = target.startAccessingSecurityScopedResource()
-        defer { if didAccess { target.stopAccessingSecurityScopedResource() } }
+        let bookmarkURL = resolveBookmarkedURL(for: target.standardized)
+        let didAccess = bookmarkURL?.startAccessingSecurityScopedResource() ?? false
+        defer { if didAccess { bookmarkURL?.stopAccessingSecurityScopedResource() } }
         for url in urls {
             let dest = target.appendingPathComponent(url.lastPathComponent)
             try? fm.copyItem(at: url, to: dest)
