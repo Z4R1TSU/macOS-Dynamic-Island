@@ -358,21 +358,29 @@ struct WeatherParticleView: View {
                     ? 0
                     : condition.isCloudy
                         ? CGFloat.random(in: 0.0005...0.001)
-                        : CGFloat.random(in: 0.005...0.015) * CGFloat(intensity + 0.5),
+                        : condition.isSnow
+                            ? CGFloat.random(in: 0.002...0.006) * CGFloat(intensity + 0.5)
+                            : CGFloat.random(in: 0.01...0.025) * CGFloat(intensity + 0.5),
                 opacity: condition.isSunny
                     ? Double.random(in: 0.3...0.8)
                     : condition.isCloudy
                         ? Double.random(in: 0.03...0.08)
-                        : Double.random(in: 0.15...0.5),
-                length: CGFloat.random(in: 4...12),
+                        : condition.isSnow
+                            ? Double.random(in: 0.4...0.9)
+                            : Double.random(in: 0.15...0.5),
+                length: condition.isSnow
+                    ? CGFloat.random(in: 2...5)
+                    : CGFloat.random(in: 4...12),
                 drift: condition.isCloudy
                     ? CGFloat.random(in: 0.0005...0.002)
-                    : CGFloat.random(in: -0.002...0.002),
+                    : condition.isSnow
+                        ? CGFloat.random(in: -0.003...0.003)
+                        : CGFloat.random(in: -0.001...0.001),
                 phase: CGFloat.random(in: 0...(2 * .pi))
             )
         }
 
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 20.0, repeats: true) { _ in
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
             updateParticles()
         }
     }
@@ -392,6 +400,13 @@ struct WeatherParticleView: View {
                 if particles[i].x > 1.3 {
                     particles[i].x = -0.3
                     particles[i].y = CGFloat.random(in: 0...1)
+                }
+            } else if condition.isSnow {
+                particles[i].y += particles[i].speed
+                particles[i].x += sin(particles[i].y * 10 + particles[i].phase) * 0.002 + particles[i].drift
+                if particles[i].y > 1.1 {
+                    particles[i].y = CGFloat.random(in: -0.2 ... -0.05)
+                    particles[i].x = CGFloat.random(in: 0...1)
                 }
             } else {
                 particles[i].y += particles[i].speed

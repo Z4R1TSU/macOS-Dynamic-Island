@@ -66,8 +66,8 @@ enum WeatherCondition: String {
     }
 
     var isSnow: Bool { self == .snow || self == .heavySnow }
-    var isSunny: Bool { self == .clear || self == .partlyCloudy }
-    var isCloudy: Bool { self == .overcast || self == .fog }
+    var isSunny: Bool { self == .clear }
+    var isCloudy: Bool { self == .overcast || self == .fog || self == .partlyCloudy }
 
     var particleIntensity: Double {
         switch self {
