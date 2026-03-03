@@ -52,9 +52,57 @@ class SpotifyController: MediaControllerProtocol {
                 named: NSNotification.Name("com.spotify.client.PlaybackStateChanged")
             )
             
-            for await _ in notifications {
-                await self?.updatePlaybackInfo()
+            for await notification in notifications {
+                await self?.handleSpotifyNotification(notification)
             }
+        }
+    }
+
+    private func handleSpotifyNotification(_ notification: Notification) async {
+        guard let userInfo = notification.userInfo else {
+            await updatePlaybackInfo()
+            return
+        }
+
+        let playerState = userInfo["Player State"] as? String ?? "Stopped"
+        let trackName = userInfo["Name"] as? String ?? ""
+        let artistName = userInfo["Artist"] as? String ?? ""
+        let albumName = userInfo["Album"] as? String ?? ""
+        let duration = (userInfo["Duration"] as? Double ?? 0) / 1000.0
+        let playbackPosition = userInfo["Playback Position"] as? Double ?? 0
+        let isPlaying = playerState == "Playing"
+        
+        // If the track changed, we update immediately to show correct info
+        // and avoid showing old song data while waiting for AppleScript
+        if trackName != playbackState.title || artistName != playbackState.artist || isPlaying != playbackState.isPlaying {
+             var newState = playbackState
+             newState.isPlaying = isPlaying
+             newState.title = trackName
+             newState.artist = artistName
+             newState.album = albumName
+             newState.duration = duration
+             newState.currentTime = playbackPosition
+             newState.lastUpdated = Date()
+             
+             // Reset artwork if track changed
+             if trackName != playbackState.title {
+                 newState.artwork = nil
+                 lastArtworkURL = nil
+                 artworkFetchTask?.cancel()
+             }
+             
+             self.playbackState = newState
+        }
+        
+        // Fetch full info (including artwork URL) via AppleScript
+        // We delay slightly to allow Spotify internal state to catch up with notification
+        try? await Task.sleep(for: .milliseconds(100))
+        await updatePlaybackInfo()
+        
+        // Retry if artwork is missing or title mismatch (likely due to stale AS data)
+        if playbackState.artwork == nil && !trackName.isEmpty {
+             try? await Task.sleep(for: .milliseconds(500))
+             await updatePlaybackInfo()
         }
     }
     
@@ -111,6 +159,11 @@ class SpotifyController: MediaControllerProtocol {
         let volumePercentage = descriptor.atIndex(9)?.int32Value ?? 50
         let artworkURL = descriptor.atIndex(10)?.stringValue ?? ""
         
+        // Check for stale data from AppleScript if we recently updated from notification
+        if abs(playbackState.lastUpdated.timeIntervalSinceNow) < 2.0 && (currentTrack != playbackState.title || isPlaying != playbackState.isPlaying) {
+            return
+        }
+        
         var state = PlaybackState(
             bundleIdentifier: "com.spotify.client",
             isPlaying: isPlaying,
@@ -131,13 +184,14 @@ class SpotifyController: MediaControllerProtocol {
             state.artwork = existingArtwork
         }
 
-    playbackState = state
+        playbackState = state
 
         if !artworkURL.isEmpty, let url = URL(string: artworkURL) {
             guard artworkURL != lastArtworkURL || state.artwork == nil else { return }
             artworkFetchTask?.cancel()
-
-            let currentState = state
+            
+            // Update lastArtworkURL to mark this request as current
+            lastArtworkURL = artworkURL
 
             artworkFetchTask = Task {
                 do {
@@ -145,11 +199,13 @@ class SpotifyController: MediaControllerProtocol {
 
                     await MainActor.run { [weak self] in
                         guard let self = self else { return }
-                        var updatedState = currentState
-                        updatedState.artwork = data
-                        self.playbackState = updatedState
-                        self.lastArtworkURL = artworkURL
-                        self.artworkFetchTask = nil
+                        // Ensure we are still tracking the same artwork URL
+                        if self.lastArtworkURL == artworkURL {
+                            var updatedState = self.playbackState
+                            updatedState.artwork = data
+                            self.playbackState = updatedState
+                            self.artworkFetchTask = nil
+                        }
                     }
                 } catch {
                     await MainActor.run { [weak self] in
