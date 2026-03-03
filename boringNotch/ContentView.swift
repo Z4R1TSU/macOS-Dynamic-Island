@@ -44,9 +44,16 @@ struct ContentView: View {
     private let zeroHeightHoverPadding: CGFloat = 10
 
     private var topCornerRadius: CGFloat {
-       ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
-                ? cornerRadiusInsets.opened.top
-                : cornerRadiusInsets.closed.top
+        if vm.notchState == .open {
+            return Defaults[.cornerRadiusScaling] ? cornerRadiusInsets.opened.top : cornerRadiusInsets.closed.top
+        } else {
+            // When closed but showing live activity (like music) and expanding view is hidden or type is music,
+            // check if music is playing to round top corners
+            if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
+                return cornerRadiusInsets.closed.bottom // Match bottom radius for uniform look
+            }
+            return cornerRadiusInsets.closed.top
+        }
     }
 
     private var currentNotchShape: NotchShape {
