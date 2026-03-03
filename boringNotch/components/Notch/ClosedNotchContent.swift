@@ -227,7 +227,7 @@ struct MusicLiveActivity: View {
     @Default(.useMusicVisualizer) var useMusicVisualizer
 
     var body: some View {
-        HStack {
+        HStack(spacing: 5) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
                 .clipped()

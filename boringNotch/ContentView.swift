@@ -50,11 +50,20 @@ struct ContentView: View {
     }
 
     private var currentNotchShape: NotchShape {
-        NotchShape(
+        let isMusicActive = (musicManager.isPlaying || !musicManager.isPlayerIdle)
+        
+        let isClosedMusicWidget = vm.notchState == .closed && isMusicActive
+            && (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
+            && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
+            
+        let isOpenMusic = vm.notchState == .open && coordinator.currentView == .home
+        
+        return NotchShape(
             topCornerRadius: topCornerRadius,
             bottomCornerRadius: ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
                 ? cornerRadiusInsets.opened.bottom
-                : cornerRadiusInsets.closed.bottom
+                : cornerRadiusInsets.closed.bottom,
+            roundedTop: isClosedMusicWidget || isOpenMusic
         )
     }
 
@@ -87,17 +96,17 @@ struct ContentView: View {
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
         {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
+            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 10)
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
             && !vm.hideOnClosed
         {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
+            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 10)
         } else if vm.notchState == .closed && !coordinator.expandingView.show && !vm.hideOnClosed
             && widgetCount > 0
         {
-            let sideWidth: CGFloat = widgetCount == 1 ? 60 : 90
-            chinWidth += (2 * sideWidth + 20)
+            let sideWidth: CGFloat = widgetCount == 1 ? 55 : 85
+            chinWidth += (2 * sideWidth + 10)
         }
 
         let maxWidth = windowSize.width - 20
@@ -139,14 +148,6 @@ struct ContentView: View {
                         }
                     }
                     .clipShape(currentNotchShape)
-                    .overlay(alignment: .top) {
-                        Rectangle()
-                            .fill(.black)
-                            .frame(height: 1)
-                            .padding(.horizontal, topCornerRadius)
-                            .opacity(useLiquidGlass && vm.notchState == .open ? 0 : 1)
-                            .animation(.smooth(duration: 0.25), value: vm.notchState)
-                    }
                     .compositingGroup()
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
