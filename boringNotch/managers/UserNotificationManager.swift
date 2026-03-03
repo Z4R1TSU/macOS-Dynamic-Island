@@ -29,32 +29,65 @@ final class UserNotificationManager: ObservableObject {
     @Published var showNotification: Bool = false
 
     private var pollTimer: Timer?
+    private var activeTimerInterval: TimeInterval?
     private var seenWindowIDs: Set<CGWindowID> = []
+    private var recentPIDs: [pid_t: Date] = [:]
     private var dismissTask: Task<Void, Never>?
     private var settingsCancellable: AnyCancellable?
+    private var accessibilityCancellable: AnyCancellable?
+    private var isAccessibilityAuthorized: Bool = false
+    private var startedAccessibilityMonitoring: Bool = false
+
+    private var pollInterval: TimeInterval = 1.0
+    private let idlePollInterval: TimeInterval = 1.0
+    private let activePollInterval: TimeInterval = 0.2
+    private let activeHoldDuration: TimeInterval = 4.0
+    private var lastActiveAt: Date = .distantPast
+    private let pidDebounceWindow: TimeInterval = 0.6
 
     private init() {
         settingsCancellable = Defaults.publisher(.enableNotifications)
             .sink { [weak self] change in
                 Task { @MainActor in
-                    if change.newValue {
-                        self?.startMonitoring()
-                    } else {
-                        self?.stopMonitoring()
-                    }
+                    self?.reconcileMonitoring()
                 }
             }
 
-        if Defaults[.enableNotifications] {
-            startMonitoring()
+        accessibilityCancellable = NotificationCenter.default.publisher(for: .accessibilityAuthorizationChanged)
+            .sink { [weak self] notification in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isAccessibilityAuthorized = (notification.userInfo?["granted"] as? Bool) ?? false
+                    self.reconcileMonitoring()
+                }
+            }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.isAccessibilityAuthorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
+            self.reconcileMonitoring()
         }
+
+        reconcileMonitoring()
     }
 
     func startMonitoring() {
-        guard pollTimer == nil else { return }
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+        guard Defaults[.enableNotifications], isAccessibilityAuthorized else {
+            stopMonitoring()
+            return
+        }
+
+        if pollTimer != nil, activeTimerInterval == pollInterval {
+            return
+        }
+
+        pollTimer?.invalidate()
+        pollTimer = nil
+
+        activeTimerInterval = pollInterval
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.checkForNotificationBanners()
+                self?.pollTick()
             }
         }
     }
@@ -62,16 +95,58 @@ final class UserNotificationManager: ObservableObject {
     func stopMonitoring() {
         pollTimer?.invalidate()
         pollTimer = nil
+        activeTimerInterval = nil
         seenWindowIDs.removeAll()
     }
 
-    private func checkForNotificationBanners() {
-        guard Defaults[.enableNotifications] else { return }
+    private func reconcileMonitoring() {
+        if Defaults[.enableNotifications], !XPCHelperClient.shared.isMonitoring {
+            XPCHelperClient.shared.startMonitoringAccessibilityAuthorization(every: 5.0)
+            startedAccessibilityMonitoring = true
+        } else if !Defaults[.enableNotifications], startedAccessibilityMonitoring {
+            XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
+            startedAccessibilityMonitoring = false
+        }
+
+        if Defaults[.enableNotifications], isAccessibilityAuthorized {
+            startMonitoring()
+        } else {
+            stopMonitoring()
+        }
+    }
+
+    private func pollTick() {
+        guard Defaults[.enableNotifications], isAccessibilityAuthorized else {
+            stopMonitoring()
+            return
+        }
+
+        let isActive = checkForNotificationBanners()
+        let now = Date()
+
+        if isActive {
+            lastActiveAt = now
+            updatePollInterval(activePollInterval)
+        } else if now.timeIntervalSince(lastActiveAt) > activeHoldDuration {
+            updatePollInterval(idlePollInterval)
+        }
+    }
+
+    private func updatePollInterval(_ interval: TimeInterval) {
+        guard pollInterval != interval else { return }
+        pollInterval = interval
+        startMonitoring()
+    }
+
+    @discardableResult
+    private func checkForNotificationBanners() -> Bool {
+        guard Defaults[.enableNotifications], isAccessibilityAuthorized else { return false }
 
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return }
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return showNotification }
 
         var currentOnScreenIDs = Set<CGWindowID>()
+        var foundNotificationUI = false
 
         for info in windowList {
             guard let ownerName = info[kCGWindowOwnerName as String] as? String,
@@ -79,22 +154,40 @@ final class UserNotificationManager: ObservableObject {
                   let pid = info[kCGWindowOwnerPID as String] as? pid_t
             else { continue }
 
-            currentOnScreenIDs.insert(windowID)
-
             let isNotificationUI = ownerName == "NotificationCenter"
                 || ownerName == "com.apple.notificationcenterui"
                 || ownerName == "UserNotificationCenter"
 
             if isNotificationUI,
                let layer = info[kCGWindowLayer as String] as? Int,
-               layer > 0,
-               !seenWindowIDs.contains(windowID) {
-                seenWindowIDs.insert(windowID)
-                processNotificationBanner(pid: pid)
+               layer > 0 {
+                foundNotificationUI = true
+                currentOnScreenIDs.insert(windowID)
+
+                if !seenWindowIDs.contains(windowID) {
+                    seenWindowIDs.insert(windowID)
+                    if shouldProcess(pid: pid) {
+                        processNotificationBanner(pid: pid)
+                    }
+                }
             }
         }
 
         seenWindowIDs = seenWindowIDs.intersection(currentOnScreenIDs)
+        return foundNotificationUI || showNotification
+    }
+
+    private func shouldProcess(pid: pid_t) -> Bool {
+        let now = Date()
+
+        recentPIDs = recentPIDs.filter { now.timeIntervalSince($0.value) < 6.0 }
+
+        if let last = recentPIDs[pid], now.timeIntervalSince(last) < pidDebounceWindow {
+            return false
+        }
+
+        recentPIDs[pid] = now
+        return true
     }
 
     // MARK: - Accessibility Extraction

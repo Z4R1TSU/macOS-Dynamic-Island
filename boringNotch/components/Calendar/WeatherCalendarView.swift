@@ -14,13 +14,27 @@ struct WeatherCalendarView: View {
     @ObservedObject private var weatherManager = WeatherManager.shared
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.useLiquidGlass) private var useLiquidGlass
-    @State private var currentTime = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private static let timeFormatter: DateFormatter = {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        return fmt
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEEE, d MMM"
+        return fmt
+    }()
 
     var body: some View {
         ZStack {
-            if weatherManager.weather.condition.hasParticles {
+            if vm.notchState == .open,
+               !reduceMotion,
+               weatherManager.weather.isLoaded,
+               weatherManager.weather.condition.hasParticles
+            {
                 WeatherParticleView(condition: weatherManager.weather.condition)
                     .allowsHitTesting(false)
             }
@@ -46,9 +60,6 @@ struct WeatherCalendarView: View {
                 .fill(useLiquidGlass ? Color.white.opacity(0.08) : Color.white.opacity(0.04))
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .onReceive(timer) { time in
-            currentTime = time
-        }
         .onAppear {
             weatherManager.startMonitoring()
         }
@@ -114,16 +125,18 @@ struct WeatherCalendarView: View {
     // MARK: - Clock Column
 
     private var clockColumn: some View {
-        VStack(spacing: 4) {
-            Text(timeString)
-                .font(.system(size: 32, weight: .light, design: .rounded))
-                .monospacedDigit()
-                .adaptiveText(isGlass: useLiquidGlass)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            VStack(spacing: 4) {
+                Text(timeString(for: context.date))
+                    .font(.system(size: 32, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .adaptiveText(isGlass: useLiquidGlass)
 
-            Text(dateString)
-                .font(.system(size: 11))
-                .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.6)) }
+                Text(dateString(for: context.date))
+                    .font(.system(size: 11))
+                    .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.6)) }
+            }
         }
     }
 
@@ -219,16 +232,12 @@ struct WeatherCalendarView: View {
             .frame(width: 1, height: 60)
     }
 
-    private var timeString: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: currentTime)
+    private func timeString(for date: Date) -> String {
+        Self.timeFormatter.string(from: date)
     }
 
-    private var dateString: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "EEEE, d MMM"
-        return fmt.string(from: currentTime)
+    private func dateString(for date: Date) -> String {
+        Self.dateFormatter.string(from: date)
     }
 
     private var nextEvent: EventModel? {
@@ -334,6 +343,8 @@ struct WeatherParticleView: View {
     }
 
     private func startAnimation() {
+        stopAnimation()
+
         let intensity = condition.particleIntensity
         let count = Int(Double(maxParticles) * max(intensity, 0.2))
 
@@ -361,10 +372,8 @@ struct WeatherParticleView: View {
             )
         }
 
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
-            Task { @MainActor in
-                updateParticles()
-            }
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 20.0, repeats: true) { _ in
+            updateParticles()
         }
     }
 
