@@ -43,31 +43,6 @@ struct ContentView: View {
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
 
-    private var unifiedCornerRadius: CGFloat {
-        ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
-            ? cornerRadiusInsets.opened.bottom
-            : cornerRadiusInsets.closed.bottom
-    }
-
-    private var shouldUseRoundedRectNotch: Bool {
-        if vm.hideOnClosed { return false }
-
-        if notificationManager.showNotification && Defaults[.enableNotifications] { return true }
-        if coordinator.expandingView.show { return true }
-
-        if coordinator.musicLiveActivityEnabled && (musicManager.isPlaying || !musicManager.isPlayerIdle) { return true }
-
-        if Defaults[.showNotHumanFace] && (!musicManager.isPlaying && musicManager.isPlayerIdle) { return true }
-
-        if hasAnyClosedWidgetContent() { return true }
-
-        return false
-    }
-
-    private var topBorderInset: CGFloat {
-        shouldUseRoundedRectNotch ? unifiedCornerRadius : topCornerRadius
-    }
-
     private var topCornerRadius: CGFloat {
        ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
                 ? cornerRadiusInsets.opened.top
@@ -163,18 +138,12 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .mask {
-                        if shouldUseRoundedRectNotch {
-                            RoundedRectangle(cornerRadius: unifiedCornerRadius, style: .continuous)
-                        } else {
-                            currentNotchShape
-                        }
-                    }
+                    .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
                         Rectangle()
                             .fill(.black)
                             .frame(height: 1)
-                            .padding(.horizontal, topBorderInset)
+                            .padding(.horizontal, topCornerRadius)
                             .opacity(useLiquidGlass && vm.notchState == .open ? 0 : 1)
                             .animation(.smooth(duration: 0.25), value: vm.notchState)
                     }
