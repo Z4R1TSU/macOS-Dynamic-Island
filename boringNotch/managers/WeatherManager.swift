@@ -165,8 +165,8 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             }
         }
 
-        // Fetch weather every 4 hours, but update location only every 6 hours
-        fetchTimer = Timer.scheduledTimer(withTimeInterval: 21600, repeats: true) { [weak self] _ in
+        // Fetch weather every 0.5 hours, but update location only every 6 hours
+        fetchTimer = Timer.scheduledTimer(withTimeInterval: 3000, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 
