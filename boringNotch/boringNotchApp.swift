@@ -413,19 +413,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self = self else { return }
                 guard Defaults[.enableTranslation] else { return }
 
-                // Capture text BEFORE opening the notch — opening steals focus
-                // from the source app, which breaks both AX and simulated Cmd+C.
                 await TranslationManager.shared.captureAndTranslate()
 
-                let viewModel = self.vm
+                var viewModel = self.vm
+                var targetWindow: NSWindow? = self.window
+
+                if Defaults[.showOnAllDisplays] {
+                    let mouseLocation = NSEvent.mouseLocation
+                    // Close all other notches first to prevent duplicates
+                    for (_, otherVM) in self.viewModels {
+                        if otherVM.notchState == .open {
+                            otherVM.close()
+                        }
+                    }
+                    for screen in NSScreen.screens {
+                        if screen.frame.contains(mouseLocation),
+                           let uuid = screen.displayUUID,
+                           let screenVM = self.viewModels[uuid] {
+                            viewModel = screenVM
+                            targetWindow = self.windows[uuid]
+                            break
+                        }
+                    }
+                }
+
                 self.coordinator.currentView = .translation
                 viewModel.notchSize = settingsNotchSize
                 if viewModel.notchState == .closed {
                     viewModel.open()
                 }
 
-                // Make the window key so the TextField can accept input
-                self.window?.makeKey()
+                targetWindow?.makeKey()
             }
         }
 

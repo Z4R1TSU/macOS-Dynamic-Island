@@ -48,6 +48,7 @@ class MusicManager: ObservableObject {
     @Published var volumeControlSupported: Bool = true
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
+    @Published var isLoadingArtwork: Bool = false
     @Published var currentLyrics: String = ""
     @Published var isFetchingLyrics: Bool = false
     @Published var syncedLyrics: [(time: Double, text: String)] = []
@@ -209,23 +210,37 @@ class MusicManager: ObservableObject {
             self.triggerFlipAnimation()
 
             if artworkChanged, let artwork = state.artwork {
+                self.isLoadingArtwork = false
                 self.updateArtwork(artwork)
             } else if state.artwork == nil {
-                // Try to use app icon if no artwork but track changed
-                if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
-                    self.usingAppIconForArtwork = true
-                    self.updateAlbumArt(newAlbumArt: appIconImage)
+                if !self.usingAppIconForArtwork {
+                    self.isLoadingArtwork = true
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    guard let self, self.isLoadingArtwork else { return }
+                    if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
+                        self.usingAppIconForArtwork = true
+                        self.isLoadingArtwork = false
+                        self.updateAlbumArt(newAlbumArt: appIconImage)
+                    }
+                }
+            } else if (titleChanged || artistChanged || albumChanged) && !artworkChanged {
+                self.isLoadingArtwork = true
+                self.calculateAverageColor()
             }
-            self.artworkData = state.artwork
 
-            if artworkChanged || state.artwork == nil {
-                // Update last artwork change values
-                self.lastArtworkTitle = state.title
-                self.lastArtworkArtist = state.artist
-                self.lastArtworkAlbum = state.album
-                self.lastArtworkBundleIdentifier = state.bundleIdentifier
+            if artworkChanged {
+                self.artworkData = state.artwork
+            } else if state.artwork == nil {
+                self.artworkData = nil
             }
+
+            // Always update last artwork values on content change so the next
+            // diff comparison works correctly even when artwork arrives later.
+            self.lastArtworkTitle = state.title
+            self.lastArtworkArtist = state.artist
+            self.lastArtworkAlbum = state.album
+            self.lastArtworkBundleIdentifier = state.bundleIdentifier
 
             // Only update sneak peek if there's actual content and something changed
             if !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
@@ -529,6 +544,7 @@ class MusicManager: ObservableObject {
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
                     self?.usingAppIconForArtwork = false
+                    self?.isLoadingArtwork = false
                     self?.updateAlbumArt(newAlbumArt: artworkImage)
                 }
             }

@@ -270,7 +270,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             newPlaybackState.artwork = Data(
                 base64Encoded: artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-        } else if !diff {
+        } else if diff {
+            newPlaybackState.artwork = self.playbackState.artwork
+        } else {
             newPlaybackState.artwork = nil
         }
 

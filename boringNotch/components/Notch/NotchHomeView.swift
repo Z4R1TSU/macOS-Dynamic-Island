@@ -104,11 +104,46 @@ struct AlbumArtView: View {
                         ? MusicPlayerImageSizes.cornerRadiusInset.opened
                         : MusicPlayerImageSizes.cornerRadiusInset.closed)
             )
+            .overlay {
+                if musicManager.isLoadingArtwork {
+                    ArtworkLoadingOverlay(cornerRadius: Defaults[.cornerRadiusScaling]
+                        ? MusicPlayerImageSizes.cornerRadiusInset.opened
+                        : MusicPlayerImageSizes.cornerRadiusInset.closed)
+                }
+            }
     }
 
     @ViewBuilder
     private var appIconOverlay: some View {
-        EmptyView()
+        if let bundleID = musicManager.bundleIdentifier,
+           let appIcon = AppIconAsNSImage(for: bundleID),
+           !musicManager.usingAppIconForArtwork {
+            Image(nsImage: appIcon)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 18, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+                .padding(4)
+        }
+    }
+}
+
+struct ArtworkLoadingOverlay: View {
+    let cornerRadius: CGFloat
+    @State private var pulsing = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(Color.black.opacity(pulsing ? 0.45 : 0.2))
+            .overlay {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+            }
+            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulsing)
+            .onAppear { pulsing = true }
     }
 }
 

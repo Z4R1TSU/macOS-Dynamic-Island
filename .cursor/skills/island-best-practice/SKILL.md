@@ -385,18 +385,29 @@ Rules:
 - If you modify `ClosedNotchContent`, `MusicLiveActivity`, or `MusicManager`, verify that
   `avgColor` is still unconditionally computed and used.
 
-#### Music Waveform Animation
+#### Music Waveform Animation — CANONICAL (Do Not Change)
 
-The `AudioSpectrum` in `MusicVisualizer.swift` uses random-scale `CABasicAnimation` with
-`autoreverses` for a simple, pleasing bouncing effect:
+The `AudioSpectrum` in `MusicVisualizer.swift` is the original animation from the project's
+initial commit and MUST NOT be modified. It uses `Timer` + `CABasicAnimation` with
+`autoreverses` for a bouncing effect:
 
-- 4 bars, each animated independently via `Timer` at 0.3s interval.
-- Each tick picks a random target scale in `0.35...1.0` and animates with `CABasicAnimation`.
-- `autoreverses = true` creates a natural bounce-back effect.
-- Frame rate capped at 24 fps via `preferredFrameRateRange`.
-- When paused, all animations are removed and bars reset to 0.35 scale.
-- **Do not replace this animation** with sine waves, display links, or audio capture —
-  the current approach is the intended design.
+**Exact parameters (do not alter):**
+- `barCount = 4`, `barWidth = 2`, `spacing = barWidth` (2pt), `totalHeight = 14`
+- Timer interval: `0.3` seconds
+- Random target scale: `CGFloat.random(in: 0.35 ... 1.0)`
+- `CABasicAnimation(keyPath: "transform.scale.y")`
+  - `duration = 0.3`
+  - `autoreverses = true`
+  - `fillMode = .forwards`, `isRemovedOnCompletion = false`
+  - `preferredFrameRateRange = (minimum: 24, maximum: 24, preferred: 24)`
+- On pause: `removeAllAnimations()` + reset to `CATransform3DMakeScale(1, 0.35, 1)`
+- `setPlaying(true)` starts the timer, `setPlaying(false)` stops + resets
+
+**Forbidden changes:**
+- Do NOT replace with sine waves, display links, CADisplayLink, or vDSP/FFT audio capture.
+- Do NOT change the timer interval, scale range, duration, or autoreverses behavior.
+- Do NOT add smooth interpolation or easing beyond what `autoreverses` provides.
+- This is the intended design — simple, lightweight, and correct.
 
 ## Checklist for New Features
 
