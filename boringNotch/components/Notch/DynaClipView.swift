@@ -23,6 +23,9 @@ struct DynaClipView: View {
             Divider().background(Color.white.opacity(0.1))
             bottomToolbar
         }
+        .onAppear {
+            clipManager.loadDirectory()
+        }
         .transition(
             .asymmetric(
                 insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -185,6 +188,15 @@ struct DynaClipView: View {
                 }
             } label: {
                 Image(systemName: "magnifyingglass")
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .foregroundStyle(.gray)
+
+            Button {
+                clipManager.loadDirectory()
+            } label: {
+                Image(systemName: "arrow.clockwise")
                     .font(.system(size: 10, weight: .medium))
             }
             .buttonStyle(PlainButtonStyle())

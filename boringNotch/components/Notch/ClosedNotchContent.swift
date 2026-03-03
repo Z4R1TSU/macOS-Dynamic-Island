@@ -240,6 +240,8 @@ struct MusicLiveActivity: View {
                     width: max(0, vm.effectiveClosedNotchHeight - 12),
                     height: max(0, vm.effectiveClosedNotchHeight - 12)
                 )
+                .opacity(musicManager.isLoadingArtwork ? 0.6 : 1.0)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: musicManager.isLoadingArtwork)
 
             Rectangle()
                 .fill(.black)
