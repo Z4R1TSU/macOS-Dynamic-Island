@@ -88,7 +88,7 @@ struct WeatherCalendarView: View {
                     .foregroundStyle(.white)
                     .conditionalModifier(useLiquidGlass) { $0.glassIcon() }
 
-                Text("\(Int(weatherManager.weather.temperature.rounded()))°")
+                Text(weatherManager.weather.isLoaded ? "\(Int(weatherManager.weather.temperature.rounded()))°" : "—")
                     .font(.system(size: 18, weight: .medium, design: .rounded))
                     .adaptiveText(isGlass: useLiquidGlass)
 
@@ -100,11 +100,13 @@ struct WeatherCalendarView: View {
                         .lineLimit(1)
                 }
 
-                Text(weatherManager.weather.condition.description)
-                    .font(.system(size: 9))
-                    .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
-                    .lineLimit(1)
+                if weatherManager.weather.isLoaded {
+                    Text(weatherManager.weather.condition.description)
+                        .font(.system(size: 9))
+                        .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                        .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
+                        .lineLimit(1)
+                }
             }
         }
     }

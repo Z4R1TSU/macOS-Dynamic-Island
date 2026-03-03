@@ -7,6 +7,7 @@
 
 import Combine
 import CoreLocation
+import Defaults
 import Foundation
 import SwiftUI
 
@@ -119,20 +120,49 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var lastFetchTime: Date?
     private var fetchTimer: Timer?
     private let geocoder = CLGeocoder()
+    private var immediateRefreshTask: Task<Void, Never>?
+
+    private struct CachedWeather: Codable {
+        var temperature: Double
+        var conditionRawValue: String
+        var cityName: String
+        var isDay: Bool
+        var fetchedAt: Date
+        var latitude: Double
+        var longitude: Double
+    }
 
     override init() {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+        loadCachedWeather()
     }
 
     func startMonitoring() {
+        fetchTimer?.invalidate()
+        fetchTimer = nil
+
         let status = locationManager.authorizationStatus
         if status == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
         } else if status == .authorizedAlways || status == .authorized {
             locationAuthorized = true
             locationManager.startUpdatingLocation()
+        }
+
+        if status == .authorizedAlways || status == .authorized {
+            if let location = (lastFetchLocation ?? locationManager.location) {
+                lastFetchLocation = location
+                immediateRefreshTask?.cancel()
+                immediateRefreshTask = Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    await self.fetchWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                    if self.weather.cityName.isEmpty {
+                        self.reverseGeocode(location)
+                    }
+                }
+            }
         }
 
         // Fetch weather every 4 hours, but update location only every 6 hours
@@ -157,6 +187,8 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func stopMonitoring() {
         fetchTimer?.invalidate()
         fetchTimer = nil
+        immediateRefreshTask?.cancel()
+        immediateRefreshTask = nil
         locationManager.stopUpdatingLocation()
     }
 
@@ -194,6 +226,7 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             Task { @MainActor [weak self] in
                 if let city = placemarks?.first?.locality {
                     self?.weather.cityName = city
+                    self?.persistCachedWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
                 }
             }
         }
@@ -215,9 +248,44 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 weather.condition = WeatherCondition.from(wmoCode: code)
                 weather.isDay = isDayValue == 1
                 weather.isLoaded = true
+                persistCachedWeather(latitude: latitude, longitude: longitude)
             }
         } catch {
             // Silently fail - weather is supplementary info
         }
+    }
+
+    private func loadCachedWeather() {
+        guard let data = Defaults[.cachedWeatherData] else { return }
+        guard let cached = try? JSONDecoder().decode(CachedWeather.self, from: data) else { return }
+
+        let condition = WeatherCondition(rawValue: cached.conditionRawValue) ?? .unknown
+        weather = WeatherData(
+            temperature: cached.temperature,
+            condition: condition,
+            cityName: cached.cityName,
+            isLoaded: true,
+            isDay: cached.isDay
+        )
+
+        lastFetchLocation = CLLocation(latitude: cached.latitude, longitude: cached.longitude)
+        lastFetchTime = cached.fetchedAt
+    }
+
+    private func persistCachedWeather(latitude: Double, longitude: Double) {
+        guard weather.isLoaded else { return }
+
+        let cached = CachedWeather(
+            temperature: weather.temperature,
+            conditionRawValue: weather.condition.rawValue,
+            cityName: weather.cityName,
+            isDay: weather.isDay,
+            fetchedAt: Date(),
+            latitude: latitude,
+            longitude: longitude
+        )
+
+        guard let data = try? JSONEncoder().encode(cached) else { return }
+        Defaults[.cachedWeatherData] = data
     }
 }
