@@ -38,7 +38,7 @@ struct ContentView: View {
     @Default(.useLiquidGlass) var useLiquidGlass
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
-    private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
+    private let animationSpring = Animation.interactiveSpring(response: 0.32, dampingFraction: 0.8, blendDuration: 0)
 
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
@@ -128,13 +128,13 @@ struct ContentView: View {
                         ZStack {
                             Color.black
                                 .opacity(useLiquidGlass && vm.notchState == .open ? 0 : 1)
-                                .animation(.smooth(duration: 0.3), value: vm.notchState)
+                                .animation(.smooth(duration: 0.25), value: vm.notchState)
                             if useLiquidGlass {
                                 Rectangle()
                                     .fill(.ultraThinMaterial)
                                     .environment(\.colorScheme, .dark)
                                     .opacity(vm.notchState == .open ? 1 : 0)
-                                    .animation(.smooth(duration: 0.35), value: vm.notchState)
+                                    .animation(.smooth(duration: 0.25), value: vm.notchState)
                             }
                         }
                     }
@@ -145,8 +145,9 @@ struct ContentView: View {
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
                             .opacity(useLiquidGlass && vm.notchState == .open ? 0 : 1)
-                            .animation(.smooth(duration: 0.3), value: vm.notchState)
+                            .animation(.smooth(duration: 0.25), value: vm.notchState)
                     }
+                    .compositingGroup()
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
                             ? .black.opacity(0.7) : .clear, radius: Defaults[.cornerRadiusScaling] ? 6 : 4
@@ -159,8 +160,8 @@ struct ContentView: View {
                 mainLayout
                     .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
                     .conditionalModifier(true) { view in
-                        let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
-                        let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
+                        let openAnimation = Animation.spring(response: 0.32, dampingFraction: 0.8, blendDuration: 0)
+                        let closeAnimation = Animation.spring(response: 0.35, dampingFraction: 1.0, blendDuration: 0)
                         
                         return view
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
@@ -221,7 +222,7 @@ struct ContentView: View {
                         }
                     }
                     .onChange(of: coordinator.currentView) { _, newView in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
                             if vm.notchState == .open {
                                 let needsTall = (newView == .settings || newView == .translation || newView == .market || newView == .widgets || newView == .clip)
                                 vm.notchSize = needsTall ? settingsNotchSize : openNotchSize
@@ -427,7 +428,7 @@ struct ContentView: View {
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)
-                    .animation(.smooth(duration: 0.35))
+                    .animation(.smooth(duration: 0.25))
                 )
                 .zIndex(1)
                 .allowsHitTesting(vm.notchState == .open)

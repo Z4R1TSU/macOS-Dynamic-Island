@@ -18,9 +18,9 @@ public class BoringAnimations {
     
     var animation: Animation {
         if #available(macOS 14.0, *), notchStyle == .notch {
-            Animation.spring(.bouncy(duration: 0.4))
+            Animation.spring(.bouncy(duration: 0.32))
         } else {
-            Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.7)
+            Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.4)
         }
     }
     

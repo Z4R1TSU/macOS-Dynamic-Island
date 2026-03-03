@@ -195,7 +195,11 @@ class BoringViewModel: NSObject, ObservableObject {
         self.coordinator.notchIsOpen = true
         
         // Force music information update when notch is opened
-        MusicManager.shared.forceUpdate()
+        // Delay update to avoid stutter during animation
+        Task {
+            try? await Task.sleep(for: .milliseconds(100))
+            MusicManager.shared.forceUpdate()
+        }
     }
 
     func close() {

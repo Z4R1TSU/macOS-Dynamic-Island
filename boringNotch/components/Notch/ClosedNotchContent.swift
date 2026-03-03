@@ -122,7 +122,7 @@ struct ClosedNotchWidgetBar: View {
         }
         .fixedSize()
         .id("left-\(asset.id)")
-        .transition(.opacity.animation(.smooth(duration: 0.5)))
+        .transition(.opacity.animation(.smooth(duration: 0.3)))
     }
 
     /// Right side: price + change arrow — gradient shimmer + digit-by-digit transition
@@ -133,14 +133,14 @@ struct ClosedNotchWidgetBar: View {
                 .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
                 .shimmerGradientForeground()
                 .contentTransition(.numericText())
-                .animation(.smooth(duration: 0.6), value: asset.compactPrice)
+                .animation(.smooth(duration: 0.4), value: asset.compactPrice)
             Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
                 .font(.system(size: 6, weight: .bold))
                 .foregroundStyle(asset.changeColor)
         }
         .fixedSize()
         .id("right-\(asset.id)")
-        .transition(.opacity.animation(.smooth(duration: 0.5)))
+        .transition(.opacity.animation(.smooth(duration: 0.3)))
     }
 
     /// Market pill (two-widget mode): icon + symbol + price + arrow
@@ -157,14 +157,14 @@ struct ClosedNotchWidgetBar: View {
                 .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
                 .shimmerGradientForeground()
                 .contentTransition(.numericText())
-                .animation(.smooth(duration: 0.6), value: asset.compactPrice)
+                .animation(.smooth(duration: 0.4), value: asset.compactPrice)
             Image(systemName: asset.change24h >= 0 ? "arrow.up.right" : "arrow.down.right")
                 .font(.system(size: 6, weight: .bold))
                 .foregroundStyle(asset.changeColor)
         }
         .fixedSize()
         .id(asset.id)
-        .transition(.opacity.animation(.smooth(duration: 0.5)))
+        .transition(.opacity.animation(.smooth(duration: 0.3)))
     }
 
     private func startCycling() {
@@ -175,7 +175,7 @@ struct ClosedNotchWidgetBar: View {
             Task { @MainActor in
                 let c = loadedAssets.count
                 guard c > 0 else { return }
-                withAnimation(.smooth(duration: 0.6)) {
+                withAnimation(.smooth(duration: 0.4)) {
                     marketDisplayIndex = (marketDisplayIndex + 1) % c
                 }
             }
@@ -231,11 +231,11 @@ struct MusicLiveActivity: View {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
                 .clipped()
+                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .clipShape(
                     RoundedRectangle(
                         cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
                 )
-                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 .frame(
                     width: max(0, vm.effectiveClosedNotchHeight - 12),
                     height: max(0, vm.effectiveClosedNotchHeight - 12)

@@ -22,6 +22,7 @@ struct MusicPlayerView: View {
             AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
             if useLiquidGlass {
                 MusicControlsView()
+                    .drawingGroup()
                     .shadow(color: .black.opacity(0.5), radius: 1.5, y: 0.5)
             } else {
                 MusicControlsView().drawingGroup().compositingGroup()
@@ -60,6 +61,7 @@ struct AlbumArtView: View {
             .rotationEffect(.degrees(92))
             .blur(radius: 40)
             .opacity(musicManager.isPlaying ? 0.5 : 0)
+            .drawingGroup()
     }
 
     private var albumArtButton: some View {
@@ -96,8 +98,8 @@ struct AlbumArtView: View {
             .interpolation(.high)
             .antialiased(true)
             .aspectRatio(1, contentMode: .fit)
-            .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             .clipped()
+            .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             .clipShape(
                 RoundedRectangle(
                     cornerRadius: Defaults[.cornerRadiusScaling]
@@ -461,7 +463,7 @@ struct NotchHomeView: View {
                     .scaledToFit()
                     .opacity(vm.notchState == .closed ? 0 : 1)
                     .blur(radius: vm.notchState == .closed ? 20 : 0)
-                    .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.76, blendDuration: 0), value: shouldShowCamera)
+                    .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.76, blendDuration: 0), value: shouldShowCamera)
             } else if showCalendar {
                 WeatherCalendarView()
                     .environmentObject(vm)
@@ -647,7 +649,7 @@ struct CustomSlider: View {
                         lastDragged = Date()
                     }
             )
-            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: dragging)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: dragging)
         }
     }
 }

@@ -223,7 +223,7 @@ class BoringViewCoordinator: ObservableObject {
             return
         }
         Task { @MainActor in
-            withAnimation(.smooth) {
+            withAnimation(.smooth(duration: 0.25)) {
                 self.sneakPeek.show = status
                 self.sneakPeek.type = type
                 self.sneakPeek.value = value
@@ -272,7 +272,7 @@ class BoringViewCoordinator: ObservableObject {
         browser: BrowserType = .chromium
     ) {
         Task { @MainActor in
-            withAnimation(.smooth) {
+            withAnimation(.smooth(duration: 0.25)) {
                 self.expandingView.show = status
                 self.expandingView.type = type
                 self.expandingView.value = value
