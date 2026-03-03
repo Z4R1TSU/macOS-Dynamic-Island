@@ -56,10 +56,10 @@ struct WeatherCalendarView: View {
             .padding(.vertical, 8)
         }
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(useLiquidGlass ? Color.white.opacity(0.08) : Color.white.opacity(0.04))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(useLiquidGlass ? Color.white.opacity(0.06) : Color.white.opacity(0.04))
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear {
             weatherManager.startMonitoring()
         }
@@ -68,7 +68,7 @@ struct WeatherCalendarView: View {
     // MARK: - Weather Column
 
     private var weatherColumn: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             if !weatherManager.locationAuthorized && weatherManager.weather.cityName.isEmpty {
                 Image(systemName: "location.slash.fill")
                     .font(.system(size: 20))
@@ -198,27 +198,34 @@ struct WeatherCalendarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-            } else if let event = nextEvent {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color(event.calendar.color))
-                        .frame(width: 6, height: 6)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(event.title)
-                            .font(.system(size: 11, weight: .medium))
-                            .adaptiveText(isGlass: useLiquidGlass)
-                            .lineLimit(1)
-                        Text(eventTimeRange(event))
-                            .font(.system(size: 9))
-                            .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                            .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
-                    }
-                }
             } else {
-                Text("No events")
-                    .font(.system(size: 11))
-                    .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
-                    .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
+                let upcoming = nextEvents
+                if !upcoming.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(upcoming, id: \.id) { event in
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(Color(event.calendar.color))
+                                    .frame(width: 6, height: 6)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(event.title)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .adaptiveText(isGlass: useLiquidGlass)
+                                        .lineLimit(1)
+                                    Text(eventTimeRange(event))
+                                        .font(.system(size: 9))
+                                        .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                                        .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text("No events")
+                        .font(.system(size: 11))
+                        .conditionalModifier(useLiquidGlass) { $0.glassSecondaryText() }
+                        .conditionalModifier(!useLiquidGlass) { $0.foregroundStyle(Color(white: 0.5)) }
+                }
             }
         }
         .padding(.horizontal, 4)
@@ -228,8 +235,8 @@ struct WeatherCalendarView: View {
 
     private var dividerLine: some View {
         Rectangle()
-            .fill(Color.white.opacity(useLiquidGlass ? 0.15 : 0.1))
-            .frame(width: 1, height: 60)
+            .fill(Color.white.opacity(useLiquidGlass ? 0.1 : 0.08))
+            .frame(width: 1, height: 40)
     }
 
     private func timeString(for date: Date) -> String {
@@ -240,12 +247,17 @@ struct WeatherCalendarView: View {
         Self.dateFormatter.string(from: date)
     }
 
-    private var nextEvent: EventModel? {
+    private var nextEvents: [EventModel] {
         let now = Date()
         return calendarManager.events
-            .filter { !$0.type.isReminder && $0.end > now }
+            .filter { 
+                !$0.type.isReminder && 
+                $0.end > now && 
+                Calendar.current.isDateInToday($0.start) 
+            }
             .sorted { $0.start < $1.start }
-            .first
+            .prefix(3)
+            .map { $0 }
     }
 
     private func eventTimeRange(_ event: EventModel) -> String {

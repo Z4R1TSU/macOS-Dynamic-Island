@@ -19,11 +19,11 @@ struct MusicPlayerView: View {
 
     var body: some View {
         HStack {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
+            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 8)
             if useLiquidGlass {
                 MusicControlsView()
                     .drawingGroup()
-                    .shadow(color: .black.opacity(0.5), radius: 1.5, y: 0.5)
+                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
             } else {
                 MusicControlsView().drawingGroup().compositingGroup()
             }
@@ -57,10 +57,10 @@ struct AlbumArtView: View {
                         : MusicPlayerImageSizes.cornerRadiusInset.closed)
             )
             .aspectRatio(1, contentMode: .fit)
-            .scaleEffect(x: 1.3, y: 1.4)
+            .scaleEffect(x: 1.2, y: 1.3)
             .rotationEffect(.degrees(92))
             .blur(radius: 40)
-            .opacity(musicManager.isPlaying ? 0.5 : 0)
+            .opacity(musicManager.isPlaying ? 0.4 : 0)
             .drawingGroup()
     }
 
@@ -179,7 +179,7 @@ struct MusicControlsView: View {
     }
 
     private func songInfo(width: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
             MarqueeText(
                 $musicManager.songTitle, font: .headline, nsFont: .headline, textColor: .white,
                 frameWidth: width)
@@ -192,9 +192,9 @@ struct MusicControlsView: View {
                         .ensureMinimumBrightness(factor: 0.6) : .gray,
                 frameWidth: width
             )
-            .fontWeight(.medium)
+            .fontWeight(.regular)
             if Defaults[.enableLyrics] {
-                TimelineView(.animation(minimumInterval: 0.1)) { timeline in
+                TimelineView(.animation(minimumInterval: 0.05)) { timeline in
                     let currentElapsed: Double = musicManager.estimatedPlaybackPosition(at: timeline.date)
                     let line: String = {
                         if musicManager.isFetchingLyrics { return "Loading lyrics…" }
@@ -219,6 +219,7 @@ struct MusicControlsView: View {
                     .lineLimit(1)
                     .opacity(musicManager.isPlaying ? 1 : 0)
                     .transition(.opacity.combined(with: .move(edge: .top)))
+                    .animation(.easeInOut(duration: 0.2), value: line)
                 }
             }
         }
@@ -611,7 +612,7 @@ struct MusicSliderView: View {
                 Defaults[.playerColorTinting]
                     ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6) : .gray
             )
-            .font(.caption)
+            .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
         }
         .onChange(of: currentDate) {
            guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
@@ -645,7 +646,7 @@ struct CustomSlider: View {
     var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
-            let height = CGFloat(dragging ? 9 : 5)
+            let height = CGFloat(dragging ? 10 : 6)
             let rangeSpan = range.upperBound - range.lowerBound
 
             let progress = rangeSpan == .zero ? 0 : (value - range.lowerBound) / rangeSpan
@@ -653,7 +654,7 @@ struct CustomSlider: View {
 
             ZStack(alignment: .leading) {
                 Rectangle()
-                    .fill(.gray.opacity(0.3))
+                    .fill(.gray.opacity(0.2))
                     .frame(height: height)
 
                 Rectangle()
@@ -661,7 +662,8 @@ struct CustomSlider: View {
                     .frame(width: filledTrackWidth, height: height)
             }
             .cornerRadius(height / 2)
-            .frame(height: 10)
+            .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: dragging)
+            .frame(height: 12)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -674,12 +676,13 @@ struct CustomSlider: View {
                         onDragChange?(value)
                     }
                     .onEnded { _ in
-                        onValueChange?(value)
-                        dragging = false
+                        withAnimation {
+                            dragging = false
+                        }
                         lastDragged = Date()
+                        onValueChange?(value)
                     }
             )
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: dragging)
         }
     }
 }

@@ -38,7 +38,7 @@ struct ContentView: View {
     @Default(.useLiquidGlass) var useLiquidGlass
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
-    private let animationSpring = Animation.interactiveSpring(response: 0.32, dampingFraction: 0.8, blendDuration: 0)
+    private let animationSpring = Animation.interactiveSpring(response: 0.35, dampingFraction: 0.86, blendDuration: 0)
 
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
@@ -151,7 +151,7 @@ struct ContentView: View {
                     .compositingGroup()
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
-                            ? .black.opacity(0.7) : .clear, radius: Defaults[.cornerRadiusScaling] ? 6 : 4
+                            ? .black.opacity(0.4) : .clear, radius: Defaults[.cornerRadiusScaling] ? 12 : 6, y: 4
                     )
                     .padding(
                         .bottom,
@@ -161,12 +161,12 @@ struct ContentView: View {
                 mainLayout
                     .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
                     .conditionalModifier(true) { view in
-                        let openAnimation = Animation.spring(response: 0.32, dampingFraction: 0.8, blendDuration: 0)
-                        let closeAnimation = Animation.spring(response: 0.35, dampingFraction: 1.0, blendDuration: 0)
+                        let openAnimation = Animation.spring(response: 0.38, dampingFraction: 0.82, blendDuration: 0)
+                        let closeAnimation = Animation.spring(response: 0.4, dampingFraction: 0.9, blendDuration: 0)
                         
                         return view
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
-                            .animation(.smooth, value: gestureProgress)
+                            .animation(.smooth(duration: 0.3), value: gestureProgress)
                     }
                     .contentShape(Rectangle())
                     .onHover { hovering in
