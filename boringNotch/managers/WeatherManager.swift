@@ -10,7 +10,7 @@ import CoreLocation
 import Foundation
 import SwiftUI
 
-enum WeatherCondition: String, Codable {
+enum WeatherCondition: String {
     case clear, partlyCloudy, overcast, fog
     case drizzle, rain, heavyRain
     case snow, heavySnow
@@ -99,7 +99,7 @@ enum WeatherCondition: String, Codable {
     }
 }
 
-struct WeatherData: Codable {
+struct WeatherData {
     var temperature: Double = 0
     var condition: WeatherCondition = .unknown
     var cityName: String = ""
@@ -124,20 +124,6 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-        loadCachedWeather()
-    }
-    
-    private func loadCachedWeather() {
-        if let data = UserDefaults.standard.data(forKey: "cachedWeatherData"),
-           let decoded = try? JSONDecoder().decode(WeatherData.self, from: data) {
-            self.weather = decoded
-        }
-    }
-    
-    private func saveWeatherToCache() {
-        if let encoded = try? JSONEncoder().encode(weather) {
-            UserDefaults.standard.set(encoded, forKey: "cachedWeatherData")
-        }
     }
 
     func startMonitoring() {
@@ -229,7 +215,6 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 weather.condition = WeatherCondition.from(wmoCode: code)
                 weather.isDay = isDayValue == 1
                 weather.isLoaded = true
-                saveWeatherToCache()
             }
         } catch {
             // Silently fail - weather is supplementary info
