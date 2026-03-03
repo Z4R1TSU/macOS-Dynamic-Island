@@ -135,9 +135,21 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             locationManager.startUpdatingLocation()
         }
 
-        fetchTimer = Timer.scheduledTimer(withTimeInterval: 14400, repeats: true) { [weak self] _ in
+        // Fetch weather every 4 hours, but update location only every 6 hours
+        fetchTimer = Timer.scheduledTimer(withTimeInterval: 21600, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.locationManager.startUpdatingLocation()
+                guard let self = self else { return }
+                
+                // Only request location update if it's been more than 6 hours (21600 seconds)
+                // or if we've never successfully fetched a location
+                let shouldUpdateLocation = self.lastFetchTime == nil || Date().timeIntervalSince(self.lastFetchTime!) > 21600
+                
+                if shouldUpdateLocation {
+                    self.locationManager.startUpdatingLocation()
+                } else if let location = self.lastFetchLocation {
+                    // Otherwise just refresh weather using cached location
+                    await self.fetchWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                }
             }
         }
     }
