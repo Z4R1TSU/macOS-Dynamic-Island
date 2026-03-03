@@ -18,9 +18,13 @@ enum WeatherCondition: String {
     case unknown
 
     var sfSymbol: String {
+        return sfSymbol(isDay: true)
+    }
+    
+    func sfSymbol(isDay: Bool) -> String {
         switch self {
-        case .clear: return "sun.max.fill"
-        case .partlyCloudy: return "cloud.sun.fill"
+        case .clear: return isDay ? "sun.max.fill" : "moon.stars.fill"
+        case .partlyCloudy: return isDay ? "cloud.sun.fill" : "cloud.moon.fill"
         case .overcast: return "cloud.fill"
         case .fog: return "cloud.fog.fill"
         case .drizzle: return "cloud.drizzle.fill"
@@ -100,6 +104,7 @@ struct WeatherData {
     var condition: WeatherCondition = .unknown
     var cityName: String = ""
     var isLoaded: Bool = false
+    var isDay: Bool = true
 }
 
 @MainActor
@@ -111,6 +116,7 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     private let locationManager = CLLocationManager()
     private var lastFetchLocation: CLLocation?
+    private var lastFetchTime: Date?
     private var fetchTimer: Timer?
     private let geocoder = CLGeocoder()
 
@@ -129,7 +135,7 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             locationManager.startUpdatingLocation()
         }
 
-        fetchTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+        fetchTimer = Timer.scheduledTimer(withTimeInterval: 14400, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.locationManager.startUpdatingLocation()
             }
@@ -156,11 +162,15 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard let location = locations.last else { return }
 
         Task { @MainActor in
-            if let last = lastFetchLocation, location.distance(from: last) < 1000 && weather.isLoaded {
+            let shouldForceUpdate = lastFetchTime == nil || Date().timeIntervalSince(lastFetchTime!) > 14000 // Force update if older than ~4 hours
+            
+            if !shouldForceUpdate, let last = lastFetchLocation, location.distance(from: last) < 1000 && weather.isLoaded {
                 locationManager.stopUpdatingLocation()
                 return
             }
+            
             lastFetchLocation = location
+            lastFetchTime = Date()
             locationManager.stopUpdatingLocation()
             await fetchWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             reverseGeocode(location)
@@ -178,7 +188,7 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     private func fetchWeather(latitude: Double, longitude: Double) async {
-        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&current=temperature_2m,weather_code"
+        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&current=temperature_2m,weather_code,is_day&timezone=auto"
         guard let url = URL(string: urlString) else { return }
 
         do {
@@ -186,10 +196,12 @@ class WeatherManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let current = json["current"] as? [String: Any],
                let temp = current["temperature_2m"] as? Double,
-               let code = current["weather_code"] as? Int
+               let code = current["weather_code"] as? Int,
+               let isDayValue = current["is_day"] as? Int
             {
                 weather.temperature = temp
                 weather.condition = WeatherCondition.from(wmoCode: code)
+                weather.isDay = isDayValue == 1
                 weather.isLoaded = true
             }
         } catch {

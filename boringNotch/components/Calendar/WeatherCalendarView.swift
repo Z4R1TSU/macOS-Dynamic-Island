@@ -82,7 +82,7 @@ struct WeatherCalendarView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                Image(systemName: weatherManager.weather.condition.sfSymbol)
+                Image(systemName: weatherManager.weather.condition.sfSymbol(isDay: weatherManager.weather.isDay))
                     .font(.system(size: 24))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white)
