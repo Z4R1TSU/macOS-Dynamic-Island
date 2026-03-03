@@ -480,19 +480,33 @@ class MusicManager: ObservableObject {
         var result: [(Double, String)] = []
         lrc.split(separator: "\n").forEach { lineSub in
             let line = String(lineSub)
-            // Match [mm:ss.xx] or [m:ss]
-            let pattern = #"\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?\]"#
+            // Match [mm:ss.xx] or [mm:ss.xxx] or [mm:ss]
+            // Allow 1-3 digits for fractional seconds
+            let pattern = #"\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]"#
             guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
             let nsLine = line as NSString
             if let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: nsLine.length)) {
                 let minStr = nsLine.substring(with: match.range(at: 1))
                 let secStr = nsLine.substring(with: match.range(at: 2))
                 let csRange = match.range(at: 3)
-                let centiStr = csRange.location != NSNotFound ? nsLine.substring(with: csRange) : "0"
+                
                 let minutes = Double(minStr) ?? 0
                 let seconds = Double(secStr) ?? 0
-                let centis = Double(centiStr) ?? 0
-                let time = minutes * 60 + seconds + centis / 100.0
+                
+                var fractional: Double = 0
+                if csRange.location != NSNotFound {
+                    let fracStr = nsLine.substring(with: csRange)
+                    if let val = Double(fracStr) {
+                        // Adjust divisor based on number of digits
+                        // 2 digits (standard) -> 100 (hundredths)
+                        // 3 digits -> 1000 (milliseconds)
+                        // 1 digit -> 10 (tenths)
+                        let divisor = pow(10.0, Double(fracStr.count))
+                        fractional = val / divisor
+                    }
+                }
+                
+                let time = minutes * 60 + seconds + fractional
                 let textStart = match.range.location + match.range.length
                 let text = nsLine.substring(from: textStart).trimmingCharacters(in: .whitespaces)
                 if !text.isEmpty {
@@ -582,7 +596,10 @@ class MusicManager: ObservableObject {
         guard isPlaying else { return min(elapsedTime, songDuration) }
 
         let timeDifference = date.timeIntervalSince(timestampDate)
-        let estimated = elapsedTime + (timeDifference * playbackRate)
+        // Add a small offset (e.g. 0.1s) to account for system latency if needed, 
+        // but typically 0 is fine if the controller provides accurate timestamps.
+        let latencyOffset: TimeInterval = 0.0 
+        let estimated = elapsedTime + (timeDifference * playbackRate) + latencyOffset
         return min(max(0, estimated), songDuration)
     }
 
