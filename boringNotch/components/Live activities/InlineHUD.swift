@@ -17,7 +17,7 @@ struct InlineHUD: View {
     @Binding var gestureProgress: CGFloat
     
     private var sideWidth: CGFloat {
-        if type == .bluetooth || type == .unlock {
+        if type == .bluetooth || type == .unlock || type == .lock {
             return 40 - (hoverAnimation ? 0 : 6) + gestureProgress / 2
         }
         return 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2
@@ -60,6 +60,11 @@ struct InlineHUD: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
+                        case .lock:
+                            Image(systemName: "lock.fill")
+                                .symbolRenderingMode(.hierarchical)
+                                .contentTransition(.interpolate)
+                                .frame(width: 20, height: 15, alignment: .center)
                         case .unlock:
                             Image(systemName: "lock.open.fill")
                                 .symbolRenderingMode(.hierarchical)
@@ -74,8 +79,8 @@ struct InlineHUD: View {
                 
                 if type == .bluetooth {
                     // No text for bluetooth, just icon
-                } else if type == .unlock {
-                    // No text for unlock, just icon
+                } else if type == .unlock || type == .lock {
+                    // No text for unlock/lock, just icon
                 }
             }
             .frame(width: sideWidth, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
@@ -96,8 +101,8 @@ struct InlineHUD: View {
                 } else if type == .bluetooth {
                      // Nothing on the right for bluetooth, or maybe battery level if available?
                      // For now just keep it empty or balanced
-                } else if type == .unlock {
-                    // Nothing on the right for unlock
+                } else if type == .unlock || type == .lock {
+                    // Nothing on the right for unlock/lock
                 } else {
                         HStack {
                         DraggableProgressBar(value: $value, onChange: { v in

@@ -107,14 +107,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             disableSkyLightOnAllWindows()
         }
         
-        // Show unlock status notification
-        // Ensure it appears after a slight delay so it's visible after screen wakes
+        // Show unlock status notification sequence
+        // 1. Immediately show Locked icon
+        BoringViewCoordinator.shared.toggleSneakPeek(
+            status: true,
+            type: .lock,
+            duration: 3.0 // Give enough time for the sequence
+        )
+        
         Task {
-            try? await Task.sleep(for: .milliseconds(300))
+            // 2. Wait a bit (simulating unlock process or ensuring screen is awake)
+            try? await Task.sleep(for: .milliseconds(500))
+            
+            // 3. Switch to Unlocked icon
             BoringViewCoordinator.shared.toggleSneakPeek(
                 status: true,
                 type: .unlock,
-                duration: 2.5
+                duration: 2.0
             )
         }
     }

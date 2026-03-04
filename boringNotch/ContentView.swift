@@ -93,7 +93,7 @@ struct ContentView: View {
         {
             chinWidth = 400
         } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .notification) && vm.notchState == .closed && !vm.hideOnClosed {
-             if coordinator.sneakPeek.type == .bluetooth || coordinator.sneakPeek.type == .unlock {
+             if coordinator.sneakPeek.type == .bluetooth || coordinator.sneakPeek.type == .unlock || coordinator.sneakPeek.type == .lock {
                  chinWidth += 80
              } else {
                  chinWidth += 180
