@@ -24,11 +24,14 @@ final class VolumeManager: NSObject, ObservableObject {
     // Fallback software if hardware mute is not supported
     private var previousVolumeBeforeMute: Float32 = 0.2
     private var softwareMuted: Bool = false
+    private var lastOutputDeviceID: AudioObjectID = kAudioObjectUnknown
 
     private override init() {
         super.init()
-        setupAudioListener()
+        setupDefaultDeviceListener()
+        setupVolumeListener(deviceID: systemOutputDeviceID())
         fetchCurrentVolume()
+        lastOutputDeviceID = systemOutputDeviceID()
     }
 
     var shouldShowOverlay: Bool { Date().timeIntervalSince(lastChangeAt) < visibleDuration }
@@ -101,6 +104,48 @@ final class VolumeManager: NSObject, ObservableObject {
     }
 
     // MARK: - CoreAudio Helpers
+    private func getDeviceTransportType(deviceID: AudioObjectID) -> UInt32? {
+        var transportType: UInt32 = 0
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize = UInt32(MemoryLayout<UInt32>.size)
+        
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &transportType
+        )
+        
+        return status == noErr ? transportType : nil
+    }
+    
+    private func getDeviceName(deviceID: AudioObjectID) -> String {
+        var name: CFString = "" as CFString
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize = UInt32(MemoryLayout<CFString>.size)
+        
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &name
+        )
+        
+        return status == noErr ? (name as String) : "Unknown Device"
+    }
+
     private func systemOutputDeviceID() -> AudioObjectID {
         var defaultDeviceID = kAudioObjectUnknown
         var propertyAddress = AudioObjectPropertyAddress(
@@ -137,7 +182,10 @@ final class VolumeManager: NSObject, ObservableObject {
                 if self.rawVolume != avg {  
                     if self.didInitialFetch {
                         self.lastChangeAt = Date()
-                        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(avg))
+                        // If bluetooth is connecting, don't show volume HUD immediately
+                        if !BoringViewCoordinator.shared.isBluetoothConnecting {
+                            BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(avg))
+                        }
                     }
                 }
                 self.rawVolume = avg
@@ -164,7 +212,9 @@ final class VolumeManager: NSObject, ObservableObject {
                     DispatchQueue.main.async {
                         if self.isMuted != newMuted { 
                             self.lastChangeAt = Date()
-                            BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(newMuted ? 0 : self.rawVolume))
+                            if !BoringViewCoordinator.shared.isBluetoothConnecting {
+                                BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(newMuted ? 0 : self.rawVolume))
+                            }
                         }
                         self.isMuted = newMuted
                     }
@@ -173,10 +223,7 @@ final class VolumeManager: NSObject, ObservableObject {
         }
     }
 
-    private func setupAudioListener() {
-        let deviceID = systemOutputDeviceID()
-        guard deviceID != kAudioObjectUnknown else { return }
-
+    private func setupDefaultDeviceListener() {
         var defaultDevAddr = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -185,8 +232,36 @@ final class VolumeManager: NSObject, ObservableObject {
         AudioObjectAddPropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject), &defaultDevAddr, nil
         ) { _, _ in
+            let newDeviceID = self.systemOutputDeviceID()
+            
+            // Only proceed if device actually changed
+            if newDeviceID != self.lastOutputDeviceID {
+                
+                // 1. Setup listeners for the new device
+                // Ideally we should remove old listeners, but for now we just add new ones.
+                // CoreAudio listeners are tied to the DeviceID, so old listeners on old deviceID won't fire for new device.
+                self.setupVolumeListener(deviceID: newDeviceID)
+                
+                // 2. Check for Bluetooth connection
+                if let transport = self.getDeviceTransportType(deviceID: newDeviceID),
+                   (transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE) {
+                    
+                    let name = self.getDeviceName(deviceID: newDeviceID)
+                    
+                    Task { @MainActor in
+                        BluetoothManager.shared.triggerConnectionSequence(name: name)
+                    }
+                }
+                
+                self.lastOutputDeviceID = newDeviceID
+            }
+            
             self.fetchCurrentVolume()
         }
+    }
+
+    private func setupVolumeListener(deviceID: AudioObjectID) {
+        guard deviceID != kAudioObjectUnknown else { return }
 
         var masterAddr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVolumeScalar,

@@ -94,6 +94,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             enableSkyLightOnAllWindows()
         }
+        
+        // Remove lock status notification based on user request
     }
 
     @MainActor
@@ -103,6 +105,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             adjustWindowPosition(changeAlpha: true)
         } else {
             disableSkyLightOnAllWindows()
+        }
+        
+        // Show unlock status notification
+        // Ensure it appears after a slight delay so it's visible after screen wakes
+        Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            BoringViewCoordinator.shared.toggleSneakPeek(
+                status: true,
+                type: .unlock,
+                duration: 2.5
+            )
         }
     }
     

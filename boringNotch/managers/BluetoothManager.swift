@@ -36,19 +36,53 @@ class BluetoothManager: NSObject, ObservableObject {
         deviceNotifications.removeAll()
     }
 
+    // Public method to manually trigger connection sequence (e.g. from VolumeManager on audio route change)
+    @MainActor
+    func triggerConnectionSequence(name: String, icon: String = "headphones") {
+        // Avoid duplicate triggers if we already processed this via IOBluetooth notification
+        guard !BoringViewCoordinator.shared.isBluetoothConnecting else { return }
+        
+        // Set flag to suppress volume HUD
+        BoringViewCoordinator.shared.isBluetoothConnecting = true
+        
+        self.lastDeviceName = name
+        self.lastDeviceConnected = true
+        self.lastDeviceIcon = icon
+        
+        // Show bluetooth HUD
+        BoringViewCoordinator.shared.toggleSneakPeek(
+            status: true,
+            type: .bluetooth,
+            duration: 2.5
+        )
+        
+        Task {
+            // Wait for 2.5 seconds (HUD duration)
+            try? await Task.sleep(for: .milliseconds(2500))
+            
+            // Reset flag
+            BoringViewCoordinator.shared.isBluetoothConnecting = false
+            
+            // After bluetooth HUD is done, trigger volume HUD
+            // This ensures user sees the new volume level after connection
+            let currentVol = VolumeManager.shared.rawVolume
+            let currentMuted = VolumeManager.shared.isMuted
+            
+            BoringViewCoordinator.shared.toggleSneakPeek(
+                status: true,
+                type: .volume,
+                duration: 2.5,
+                value: CGFloat(currentMuted ? 0 : currentVol)
+            )
+        }
+    }
+
     @objc private func deviceConnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
         let name = device.name ?? "Unknown Device"
         let icon = iconForDevice(device)
-
+        
         Task { @MainActor in
-            self.lastDeviceName = name
-            self.lastDeviceConnected = true
-            self.lastDeviceIcon = icon
-
-            BoringViewCoordinator.shared.toggleExpandingView(
-                status: true,
-                type: .bluetooth
-            )
+            triggerConnectionSequence(name: name, icon: icon)
         }
 
         let disconnectNotif = device.register(forDisconnectNotification: self, selector: #selector(deviceDisconnected(_:device:)))
@@ -66,10 +100,12 @@ class BluetoothManager: NSObject, ObservableObject {
             self.lastDeviceConnected = false
             self.lastDeviceIcon = icon
 
-            BoringViewCoordinator.shared.toggleExpandingView(
-                status: true,
-                type: .bluetooth
-            )
+            // Optionally show disconnect status?
+            // BoringViewCoordinator.shared.toggleSneakPeek(
+            //    status: true,
+            //    type: .bluetooth,
+            //    duration: 2.5
+            // )
         }
     }
 
@@ -87,7 +123,7 @@ class BluetoothManager: NSObject, ObservableObject {
             default: return "gamecontroller"
             }
         case 0x04: // Audio/Video
-            return "headphones"
+            return "airpods"
         case 0x01: // Computer
             return "desktopcomputer"
         case 0x02: // Phone

@@ -21,6 +21,8 @@ enum SneakContentType {
     case notification
     case pomodoro
     case bluetooth
+    case lock
+    case unlock
 }
 
 struct sneakPeek {
@@ -248,10 +250,7 @@ class BoringViewCoordinator: ObservableObject {
         icon: String = ""
     ) {
         sneakPeekDuration = duration
-        // Bypass hudReplacement check for volume/brightness if we want to force show them based on user request
-        if type != .music && type != .notification {
-            // Check removed to allow manual triggering
-        }
+        
         if type == .notification && !Defaults[.enableNotifications] {
             return
         }
@@ -262,14 +261,6 @@ class BoringViewCoordinator: ObservableObject {
                 self.sneakPeek.value = value
                 self.sneakPeek.icon = icon
             }
-            // If notch is closed and hidden, we might need to temporarily unhide it? 
-            // Currently we added !vm.hideOnClosed checks in ContentView, which means if hideOnClosed is true, 
-            // HUD won't show. If user wants HUD to show, they probably expect notch to appear.
-            // But 'hideOnClosed' implies user wants a clean bar.
-            // However, system HUDs usually appear on top.
-            // If we want to support showing HUD even if notch is hidden, we need to modify ContentView logic 
-            // or temporarily disable hideOnClosed.
-            // For now, let's respect hideOnClosed but ensure the logic in ContentView is consistent.
         }
 
         if type == .mic {
@@ -305,6 +296,10 @@ class BoringViewCoordinator: ObservableObject {
             }
         }
     }
+    
+    // Flag to indicate if bluetooth connection sequence is active
+    // When true, volume changes should be suppressed or delayed
+    var isBluetoothConnecting: Bool = false
 
     func toggleExpandingView(
         status: Bool,

@@ -6,6 +6,8 @@
 	<string>Your location is used to display local weather information in the notch widget.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>Your location is used to display local weather information in the notch widget.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Bluetooth access is required to show connection status for headphones and other devices.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

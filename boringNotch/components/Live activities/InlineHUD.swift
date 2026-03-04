@@ -15,6 +15,14 @@ struct InlineHUD: View {
     @Binding var icon: String
     @Binding var hoverAnimation: Bool
     @Binding var gestureProgress: CGFloat
+    
+    private var sideWidth: CGFloat {
+        if type == .bluetooth || type == .unlock {
+            return 40 - (hoverAnimation ? 0 : 6) + gestureProgress / 2
+        }
+        return 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2
+    }
+    
     var body: some View {
         HStack {
             HStack(spacing: 5) {
@@ -48,7 +56,12 @@ struct InlineHUD: View {
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
                         case .bluetooth:
-                            Image(systemName: "headphones")
+                            Image(systemName: icon.isEmpty ? "airpods" : icon)
+                                .symbolRenderingMode(.hierarchical)
+                                .contentTransition(.interpolate)
+                                .frame(width: 20, height: 15, alignment: .center)
+                        case .unlock:
+                            Image(systemName: "lock.open.fill")
                                 .symbolRenderingMode(.hierarchical)
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
@@ -60,15 +73,12 @@ struct InlineHUD: View {
                 .symbolVariant(.fill)
                 
                 if type == .bluetooth {
-                    Text("Connected")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .transition(.opacity)
+                    // No text for bluetooth, just icon
+                } else if type == .unlock {
+                    // No text for unlock, just icon
                 }
             }
-            .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
+            .frame(width: sideWidth, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
             
             Rectangle()
                 .fill(.black)
@@ -86,6 +96,8 @@ struct InlineHUD: View {
                 } else if type == .bluetooth {
                      // Nothing on the right for bluetooth, or maybe battery level if available?
                      // For now just keep it empty or balanced
+                } else if type == .unlock {
+                    // Nothing on the right for unlock
                 } else {
                         HStack {
                         DraggableProgressBar(value: $value, onChange: { v in
@@ -96,9 +108,7 @@ struct InlineHUD: View {
                             }
                         })
                         if (type == .volume && value.isZero) {
-                            Image(systemName: "speaker.slash.fill")
-                                .font(.caption)
-                                .foregroundStyle(.gray)
+                            // Mute icon removed to avoid duplication
                         } else if Defaults[.showClosedNotchHUDPercentage] {
                             Text("\(Int(value * 100))%")
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -112,7 +122,7 @@ struct InlineHUD: View {
                 }
             }
             .padding(.trailing, 4)
-            .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12), alignment: .center)
+            .frame(width: sideWidth, height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12), alignment: .center)
         }
         .frame(height: vm.closedNotchSize.height + (hoverAnimation ? 8 : 0), alignment: .center)
     }

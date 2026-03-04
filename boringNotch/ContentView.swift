@@ -93,7 +93,11 @@ struct ContentView: View {
         {
             chinWidth = 400
         } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .notification) && vm.notchState == .closed && !vm.hideOnClosed {
-             chinWidth += 180
+             if coordinator.sneakPeek.type == .bluetooth || coordinator.sneakPeek.type == .unlock {
+                 chinWidth += 80
+             } else {
+                 chinWidth += 180
+             }
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
