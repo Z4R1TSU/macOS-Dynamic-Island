@@ -254,6 +254,21 @@ class BoringViewCoordinator: ObservableObject {
         if type == .notification && !Defaults[.enableNotifications] {
             return
         }
+        
+        // If screen is locked, only allow lock/unlock type
+        if let appDelegate = NSApp.delegate as? AppDelegate, appDelegate.isScreenLocked {
+            if type != .lock && type != .unlock {
+                return
+            }
+        }
+        
+        // If showing lock icon, force update regardless of current state
+        if type == .lock {
+            // Cancel any existing hide tasks
+            sneakPeekTask?.cancel()
+            sneakPeekTask = nil
+        }
+        
         Task { @MainActor in
             withAnimation(.smooth(duration: 0.25)) {
                 self.sneakPeek.show = status
@@ -290,7 +305,13 @@ class BoringViewCoordinator: ObservableObject {
     @Published var sneakPeek: sneakPeek = .init() {
         didSet {
             if sneakPeek.show {
-                scheduleSneakPeekHide(after: sneakPeekDuration)
+                // If type is .lock, do NOT schedule hide
+                if sneakPeek.type != .lock {
+                    scheduleSneakPeekHide(after: sneakPeekDuration)
+                } else {
+                    // For lock type, cancel any existing timer
+                    sneakPeekTask?.cancel()
+                }
             } else {
                 sneakPeekTask?.cancel()
             }

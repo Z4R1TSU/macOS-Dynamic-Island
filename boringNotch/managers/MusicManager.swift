@@ -655,24 +655,33 @@ class MusicManager: ObservableObject {
     func togglePlay() {
         Task {
             await activeController?.togglePlay()
+            forceUpdate()
         }
     }
 
     func nextTrack() {
         Task {
             await activeController?.nextTrack()
+            // Slight delay to allow system to process the skip
+            try? await Task.sleep(for: .milliseconds(150))
+            forceUpdate()
         }
     }
 
     func previousTrack() {
         Task {
             await activeController?.previousTrack()
+            try? await Task.sleep(for: .milliseconds(150))
+            forceUpdate()
         }
     }
 
     func seek(to position: TimeInterval) {
         Task {
             await activeController?.seek(to: position)
+            // Immediately update UI state locally if possible, but force fetch is safer
+            try? await Task.sleep(for: .milliseconds(100))
+            forceUpdate()
         }
     }
     func skip(seconds: TimeInterval) {

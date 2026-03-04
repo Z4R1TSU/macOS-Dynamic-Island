@@ -62,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindowController: NSWindowController?
     private var screenLockedObserver: Any?
     private var screenUnlockedObserver: Any?
-    private var isScreenLocked: Bool = false
+    var isScreenLocked: Bool = false
     private var windowScreenDidChangeObserver: Any?
     private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
 
@@ -95,7 +95,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             enableSkyLightOnAllWindows()
         }
         
-        // Remove lock status notification based on user request
+        // Force reset sneak peek state to ensure lock icon shows
+        BoringViewCoordinator.shared.sneakPeek.show = false
+        
+        // Show Locked status immediately to override any existing content (e.g. music)
+        // Using a short delay to ensure the reset propagates and overrides any music updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            BoringViewCoordinator.shared.toggleSneakPeek(
+                status: true,
+                type: .lock,
+                duration: 9999 // Keep it visible indefinitely while locked
+            )
+        }
     }
 
     @MainActor
@@ -115,9 +126,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             duration: 3.0 // Give enough time for the sequence
         )
         
+        // Force update music state immediately to reduce latency
+        MusicManager.shared.forceUpdate()
+        
         Task {
             // 2. Wait a bit (simulating unlock process or ensuring screen is awake)
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .milliseconds(400))
             
             // 3. Switch to Unlocked icon
             BoringViewCoordinator.shared.toggleSneakPeek(
