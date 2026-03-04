@@ -47,6 +47,11 @@ struct InlineHUD: View {
                                 .symbolVariant(value > 0 ? .none : .slash)
                                 .contentTransition(.interpolate)
                                 .frame(width: 20, height: 15, alignment: .center)
+                        case .bluetooth:
+                            Image(systemName: "headphones")
+                                .symbolRenderingMode(.hierarchical)
+                                .contentTransition(.interpolate)
+                                .frame(width: 20, height: 15, alignment: .center)
                         default:
                             EmptyView()
                     }
@@ -54,12 +59,14 @@ struct InlineHUD: View {
                 .foregroundStyle(.white)
                 .symbolVariant(.fill)
                 
-                Text(Type2Name(type))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .allowsTightening(true)
-                    .contentTransition(.numericText())
+                if type == .bluetooth {
+                    Text("Connected")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .transition(.opacity)
+                }
             }
             .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
             
@@ -76,6 +83,9 @@ struct InlineHUD: View {
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .contentTransition(.interpolate)
+                } else if type == .bluetooth {
+                     // Nothing on the right for bluetooth, or maybe battery level if available?
+                     // For now just keep it empty or balanced
                 } else {
                         HStack {
                         DraggableProgressBar(value: $value, onChange: { v in
@@ -86,17 +96,13 @@ struct InlineHUD: View {
                             }
                         })
                         if (type == .volume && value.isZero) {
-                            Text("muted")
+                            Image(systemName: "speaker.slash.fill")
                                 .font(.caption)
-                                .fontWeight(.medium)
                                 .foregroundStyle(.gray)
-                                .lineLimit(1)
-                                .allowsTightening(true)
-                                .multilineTextAlignment(.trailing)
                         } else if Defaults[.showClosedNotchHUDPercentage] {
                             Text("\(Int(value * 100))%")
-                                .font(.caption)
-                                .fontWeight(.medium)
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .monospacedDigit()
                                 .foregroundStyle(.gray)
                                 .lineLimit(1)
                                 .allowsTightening(true)

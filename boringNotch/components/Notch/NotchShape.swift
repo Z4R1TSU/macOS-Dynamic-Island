@@ -19,7 +19,7 @@ struct NotchShape: Shape {
         roundedTop: Bool = false
     ) {
         self.topCornerRadius = topCornerRadius ?? 6
-        self.bottomCornerRadius = bottomCornerRadius ?? 14
+        self.bottomCornerRadius = bottomCornerRadius ?? 11
         self.roundedTop = roundedTop
     }
 

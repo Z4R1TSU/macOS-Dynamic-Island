@@ -47,11 +47,11 @@ final class MediaKeyInterceptor {
     func start(promptIfNeeded: Bool = false) async {
         guard eventTap == nil else { return }
         
-        // Ensure HUD replacement is enabled
-        guard Defaults[.hudReplacement] else {
-            stop()
-            return
-        }
+        // Ensure HUD replacement is enabled or we force start it for passive listening
+        // guard Defaults[.hudReplacement] else {
+        //     stop()
+        //     return
+        // }
         
         // Check accessibility authorization
         let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
@@ -135,7 +135,14 @@ final class MediaKeyInterceptor {
         
         // Handle normal key press
         handleKeyPress(keyType: keyType, option: option, shift: shift, command: command)
-        return nil
+        
+        // If HUD replacement is enabled, consume the event (return nil)
+        // If disabled, pass it through (return event) so system HUD shows too
+        if Defaults[.hudReplacement] {
+            return nil
+        } else {
+            return Unmanaged.passRetained(cgEvent)
+        }
     }
     
     private func handleOptionAction(for keyType: NXKeyType, command: Bool) -> Bool {
@@ -199,27 +206,75 @@ final class MediaKeyInterceptor {
     private func handleKeyPress(keyType: NXKeyType, option: Bool, shift: Bool, command: Bool) {
         let stepDivisor: Float = (option && shift) ? 4.0 : 1.0
         
-        switch keyType {
-        case .soundUp:
-            Task { @MainActor in
-                self.playFeedbackSound()
-                VolumeManager.shared.increase(stepDivisor: stepDivisor)
+        // If HUD replacement is disabled, we don't want to actually change the volume/brightness ourselves
+        // because the system will do it when we pass the event through.
+        // We only want to SHOW the HUD (visual feedback).
+        // However, `handleKeyPress` currently calls VolumeManager.shared.increase/decrease which does BOTH (change + show).
+        
+        if Defaults[.hudReplacement] {
+            switch keyType {
+            case .soundUp:
+                Task { @MainActor in
+                    self.playFeedbackSound()
+                    VolumeManager.shared.increase(stepDivisor: stepDivisor)
+                }
+            case .soundDown:
+                Task { @MainActor in
+                    self.playFeedbackSound()
+                    VolumeManager.shared.decrease(stepDivisor: stepDivisor)
+                }
+            case .mute:
+                Task { @MainActor in
+                    VolumeManager.shared.toggleMuteAction()
+                }
+            case .brightnessUp, .keyboardBrightnessUp:
+                let delta = step / stepDivisor
+                adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessUp || command)
+            case .brightnessDown, .keyboardBrightnessDown:
+                let delta = -(step / stepDivisor)
+                adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessDown || command)
             }
-        case .soundDown:
-            Task { @MainActor in
-                self.playFeedbackSound()
-                VolumeManager.shared.decrease(stepDivisor: stepDivisor)
+        } else {
+            // HUD Replacement OFF: System handles the change. We just want to show the HUD.
+            // But we need to know the NEW value to show it.
+            // VolumeManager has a listener, so it will detect the change automatically and show HUD (since we fixed that).
+            // So for Volume, we do NOTHING here.
+            
+            // For Brightness, we don't have a listener.
+            // So we must manually show the HUD, but with what value?
+            // We can read the current value and guess the new value, or wait a bit and read?
+            // Or just show the current value + delta?
+            // But system handles delta.
+            
+            // If we assume system behaves same as us (step 1/16), we can predict.
+            // Let's try to just trigger a read-and-show for brightness.
+            
+            switch keyType {
+            case .soundUp, .soundDown, .mute:
+                // Do nothing, VolumeManager listener handles it.
+                break
+            case .brightnessUp, .brightnessDown:
+                Task { @MainActor in
+                    if command {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        KeyboardBacklightManager.shared.refresh()
+                        let v = await XPCHelperClient.shared.currentKeyboardBrightness() ?? KeyboardBacklightManager.shared.rawBrightness
+                        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .backlight, duration: 2.5, value: CGFloat(v))
+                    } else {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        BrightnessManager.shared.refresh()
+                        let v = await XPCHelperClient.shared.currentScreenBrightness() ?? BrightnessManager.shared.rawBrightness
+                        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .brightness, duration: 2.5, value: CGFloat(v))
+                    }
+                }
+            case .keyboardBrightnessUp, .keyboardBrightnessDown:
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(100))
+                    KeyboardBacklightManager.shared.refresh()
+                    let v = await XPCHelperClient.shared.currentKeyboardBrightness() ?? KeyboardBacklightManager.shared.rawBrightness
+                    BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .backlight, duration: 2.5, value: CGFloat(v))
+                }
             }
-        case .mute:
-            Task { @MainActor in
-                VolumeManager.shared.toggleMuteAction()
-            }
-        case .brightnessUp, .keyboardBrightnessUp:
-            let delta = step / stepDivisor
-            adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessUp || command)
-        case .brightnessDown, .keyboardBrightnessDown:
-            let delta = -(step / stepDivisor)
-            adjustBrightness(delta: delta, keyboard: keyType == .keyboardBrightnessDown || command)
         }
     }
     

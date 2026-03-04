@@ -168,6 +168,24 @@ class BoringViewCoordinator: ObservableObject {
         Task { @MainActor in
             helloAnimationRunning = firstLaunch
 
+            // Always start MediaKeyInterceptor if possible, regardless of hudReplacement preference
+            // This allows us to detect media keys and trigger our HUD manually if we want,
+            // or at least have the capability. 
+            // However, MediaKeyInterceptor logic usually suppresses system HUD if active.
+            // If hudReplacement is OFF, we probably want system HUD to show?
+            // User request: "When executing system operation... automatically trigger visual feedback in notch".
+            // This implies we WANT to show our HUD.
+            // If hudReplacement is OFF, the system HUD shows up. If we also show ours, we have double HUDs.
+            // Maybe user WANTS double HUDs or wants ours to replace system HUD implicitly?
+            // "When not enabling HUD replacement, modifying volume still doesn't show".
+            // This means we are relying on `MediaKeyInterceptor` to detect keys.
+            // If `hudReplacement` is false, `MediaKeyInterceptor` is stopped (lines 163-167).
+            // So we never get the callbacks.
+            
+            // We need to enable MediaKeyInterceptor to get the events.
+            // BUT MediaKeyInterceptor might swallow the event preventing system HUD.
+            // Let's look at MediaKeyInterceptor.
+            
             if Defaults[.hudReplacement] {
                 let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
                 if !authorized {
@@ -175,6 +193,22 @@ class BoringViewCoordinator: ObservableObject {
                 } else {
                     await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
                 }
+            } else {
+                 // Try to start it anyway to catch events, but we need to make sure we don't block system HUD
+                 // if user didn't ask to replace it.
+                 // But `MediaKeyInterceptor` implementation uses an event tap that consumes events if we handle them.
+                 // If we handle them to show our HUD, we consume them.
+                 // So "Show Notch HUD" implies "Consume Event" implies "Replace System HUD".
+                 // Unless we can re-post the event?
+                 // MediaKeyInterceptor returns `nil` (consumes) or `Unmanaged` (passes through).
+                 
+                 // If the user wants to see the notch HUD *without* replacing system HUD (i.e. double HUD),
+                 // we would need to pass the event through.
+                 // But `MediaKeyInterceptor` logic is currently: "If handleEvent returns true (handled), return nil".
+                 
+                 // Let's start it anyway so at least we get the events.
+                 // We might need to adjust MediaKeyInterceptor to NOT consume events if hudReplacement is false.
+                 await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
             }
         }
     }
@@ -210,14 +244,13 @@ class BoringViewCoordinator: ObservableObject {
     }
 
     func toggleSneakPeek(
-        status: Bool, type: SneakContentType, duration: TimeInterval = 1.5, value: CGFloat = 0,
+        status: Bool, type: SneakContentType, duration: TimeInterval = 2.5, value: CGFloat = 0,
         icon: String = ""
     ) {
         sneakPeekDuration = duration
+        // Bypass hudReplacement check for volume/brightness if we want to force show them based on user request
         if type != .music && type != .notification {
-            if !Defaults[.hudReplacement] {
-                return
-            }
+            // Check removed to allow manual triggering
         }
         if type == .notification && !Defaults[.enableNotifications] {
             return
@@ -229,6 +262,14 @@ class BoringViewCoordinator: ObservableObject {
                 self.sneakPeek.value = value
                 self.sneakPeek.icon = icon
             }
+            // If notch is closed and hidden, we might need to temporarily unhide it? 
+            // Currently we added !vm.hideOnClosed checks in ContentView, which means if hideOnClosed is true, 
+            // HUD won't show. If user wants HUD to show, they probably expect notch to appear.
+            // But 'hideOnClosed' implies user wants a clean bar.
+            // However, system HUDs usually appear on top.
+            // If we want to support showing HUD even if notch is hidden, we need to modify ContentView logic 
+            // or temporarily disable hideOnClosed.
+            // For now, let's respect hideOnClosed but ensure the logic in ContentView is consistent.
         }
 
         if type == .mic {

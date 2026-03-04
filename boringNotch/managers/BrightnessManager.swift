@@ -37,7 +37,7 @@ final class BrightnessManager: ObservableObject {
 			} else {
 				refresh()
 			}
-			BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .brightness, value: CGFloat(target))
+			BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .brightness, duration: 2.5, value: CGFloat(target))
 		}
 	}
 
@@ -50,6 +50,7 @@ final class BrightnessManager: ObservableObject {
 			} else {
 				refresh()
 			}
+            BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .brightness, duration: 2.5, value: CGFloat(clamped))
 		}
 	}
 
@@ -101,6 +102,7 @@ final class KeyboardBacklightManager: ObservableObject {
 			BoringViewCoordinator.shared.toggleSneakPeek(
 				status: true,
 				type: .backlight,
+				duration: 2.5,
 				value: CGFloat(target)
 			)
 		}
@@ -115,6 +117,7 @@ final class KeyboardBacklightManager: ObservableObject {
 			} else {
 				refresh()
 			}
+            BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .backlight, duration: 2.5, value: CGFloat(clamped))
 		}
 	}
 

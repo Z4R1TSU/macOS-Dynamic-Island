@@ -40,7 +40,7 @@ final class VolumeManager: NSObject, ObservableObject {
         let current = readVolumeInternal() ?? rawVolume
         let target = max(0, min(1, current + delta))
         setAbsolute(target)
-        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target))
+        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(target))
     }
 
     @MainActor func decrease(stepDivisor: Float = 1.0) {
@@ -49,7 +49,7 @@ final class VolumeManager: NSObject, ObservableObject {
         let current = readVolumeInternal() ?? rawVolume
         let target = max(0, min(1, current - delta))
         setAbsolute(target)
-        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(target))
+        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(target))
     }
 
     @MainActor func toggleMuteAction() {
@@ -68,7 +68,7 @@ final class VolumeManager: NSObject, ObservableObject {
         }
 
         toggleMuteInternal()
-        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, value: CGFloat(willBeMuted ? 0 : resultingVolume))
+        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(willBeMuted ? 0 : resultingVolume))
     }
     
     func refresh() { fetchCurrentVolume() }
@@ -137,6 +137,7 @@ final class VolumeManager: NSObject, ObservableObject {
                 if self.rawVolume != avg {  
                     if self.didInitialFetch {
                         self.lastChangeAt = Date()
+                        BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(avg))
                     }
                 }
                 self.rawVolume = avg
@@ -161,7 +162,10 @@ final class VolumeManager: NSObject, ObservableObject {
                 {
                     let newMuted = muted != 0
                     DispatchQueue.main.async {
-                        if self.isMuted != newMuted { self.lastChangeAt = Date() }
+                        if self.isMuted != newMuted { 
+                            self.lastChangeAt = Date()
+                            BoringViewCoordinator.shared.toggleSneakPeek(status: true, type: .volume, duration: 2.5, value: CGFloat(newMuted ? 0 : self.rawVolume))
+                        }
                         self.isMuted = newMuted
                     }
                 }
