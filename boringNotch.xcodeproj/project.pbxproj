@@ -297,6 +297,8 @@
 		14E9FEA92C70BF610062E83F /* DownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadView.swift; sourceTree = "<group>"; };
 		14E9FEAD2C7325770062E83F /* Button+Bouncing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Button+Bouncing.swift"; sourceTree = "<group>"; };
 		14FC6E4F2C7DED5600C7BEA5 /* DataTypes+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DataTypes+Extensions.swift"; sourceTree = "<group>"; };
+		2BA21E1B2F59AB440097B5A9 /* boringNotch copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "boringNotch copy-Info.plist"; path = "/Users/bytedance/macos-island/boringNotch copy-Info.plist"; sourceTree = "<absolute>"; };
+		2BA21E252F59AB570097B5A9 /* BoringNotchXPCHelper copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "BoringNotchXPCHelper copy-Info.plist"; path = "/Users/bytedance/macos-island/BoringNotchXPCHelper copy-Info.plist"; sourceTree = "<absolute>"; };
 		507266DA2C908E2E00A2D00D /* HoverButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoverButton.swift; sourceTree = "<group>"; };
 		5917FD102E57891600E87F1C /* MediaKeyInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaKeyInterceptor.swift; sourceTree = "<group>"; };
 		5955950C2E900ED800C66711 /* ApplicationRelauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationRelauncher.swift; sourceTree = "<group>"; };
@@ -595,6 +597,8 @@
 				11F748502EC9AABA00F841DB /* BoringNotchXPCHelper */,
 				14CEF4132C5CAED300855D72 /* Products */,
 				14D031EC2C689DB70096E6A1 /* Frameworks */,
+				2BA21E1B2F59AB440097B5A9 /* boringNotch copy-Info.plist */,
+				2BA21E252F59AB570097B5A9 /* BoringNotchXPCHelper copy-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
