@@ -62,7 +62,7 @@ struct ContentView: View {
             topCornerRadius: topCornerRadius,
             bottomCornerRadius: ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
                 ? cornerRadiusInsets.opened.bottom
-                : cornerRadiusInsets.closed.bottom,
+                : (isClosedMusicWidget ? 12 : cornerRadiusInsets.closed.bottom),
             roundedTop: isClosedMusicWidget || isOpenMusic
         )
     }
