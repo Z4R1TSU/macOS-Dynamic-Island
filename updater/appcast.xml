@@ -2,11 +2,11 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <item>
-            <title>2.8.4</title>
+            <title>2.8.5</title>
             <pubDate>Mon, 24 Nov 2025 08:07:37 +0000</pubDate>
             <link>https://github.com/TheBoredTeam/boring.notch/releases</link>
             <sparkle:version>271</sparkle:version>
-            <sparkle:shortVersionString>2.8.4</sparkle:shortVersionString>
+            <sparkle:shortVersionString>2.8.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>🚀 v2.7.3— Flying Rabbit 🐇🪽</h2>
 <h3> Fixes: </h3>
