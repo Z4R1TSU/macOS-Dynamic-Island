@@ -187,8 +187,9 @@ class MusicManager: ObservableObject {
             NSLog("Playback state changed: \(state.isPlaying ? "Playing" : "Paused")")
             withAnimation(.smooth) {
                 self.isPlaying = state.isPlaying
-                self.updateIdleState(state: state.isPlaying)
             }
+            // Update idle state separately (might trigger async tasks)
+            self.updateIdleState(state: state.isPlaying)
 
             if state.isPlaying && !state.title.isEmpty && !state.artist.isEmpty {
                 self.updateSneakPeek()
@@ -572,18 +573,33 @@ class MusicManager: ObservableObject {
     }
 
     private func updateIdleState(state: Bool) {
+        // Cancel any existing idle task first
+        debounceIdleTask?.cancel()
+        
         if state {
+            // Playing
             isPlayerIdle = false
-            debounceIdleTask?.cancel()
         } else {
-            debounceIdleTask?.cancel()
-            // debounceIdleTask = Task { [weak self] in
-            //     guard let self = self else { return }
-            //     try? await Task.sleep(for: .seconds(Defaults[.waitInterval]))
-            //     withAnimation {
-            //         self.isPlayerIdle = !self.isPlaying
-            //     }
-            // }
+            // Paused
+            debounceIdleTask = Task { [weak self] in
+                // Wait for a few seconds before marking as idle/collapsing
+                try? await Task.sleep(for: .seconds(5)) 
+                guard let self = self else { return }
+                
+                // Only collapse if still paused
+                if !self.isPlaying {
+                    await MainActor.run {
+                        withAnimation(.smooth) {
+                            self.isPlayerIdle = true
+                            
+                            // Also ensure the expanding view is closed if it was music
+                            if self.coordinator.expandingView.type == .music && self.coordinator.expandingView.show {
+                                self.coordinator.toggleExpandingView(status: false, type: .music)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
