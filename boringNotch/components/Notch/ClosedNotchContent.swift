@@ -355,7 +355,9 @@ struct ClosedNotchLyricsView: View {
             let line: String = {
                 if musicManager.isFetchingLyrics { return "Loading lyrics…" }
                 if !musicManager.syncedLyrics.isEmpty {
-                    return musicManager.lyricLine(at: currentElapsed)
+                    let synced = musicManager.lyricLine(at: currentElapsed)
+                    if synced == "PRELUDE_MARKER" { return "PRELUDE_MARKER" }
+                    return synced
                 }
                 let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
@@ -370,19 +372,35 @@ struct ClosedNotchLyricsView: View {
             
             GeometryReader { geometry in
                 ZStack {
-                    MarqueeText(
-                        .constant(line),
-                        font: .system(size: 11, weight: .medium),
-                        nsFont: .body,
-                        textColor: lyricColor,
-                        minDuration: 1.2,
-                        frameWidth: geometry.size.width,
-                        alignment: .center
-                    )
-                    .font(isPersian ? .custom("Vazirmatn-Regular", size: 11) : .system(size: 11, weight: .medium))
-                    .lineLimit(1)
-                    .opacity(musicManager.isPlaying ? 1 : 0.5)
-                    .animation(.easeInOut(duration: 0.2), value: line)
+                    if line == "PRELUDE_MARKER" {
+                        HStack(spacing: 4) {
+                            Image(systemName: "music.quarternote.3")
+                                .font(.system(size: 10))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.4), .white.opacity(0.8), .white.opacity(0.4)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        }
+                        .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                    } else {
+                        MarqueeText(
+                            .constant(line),
+                            font: .system(size: 11, weight: .medium),
+                            nsFont: .body,
+                            textColor: lyricColor,
+                            minDuration: 1.2,
+                            frameWidth: geometry.size.width,
+                            alignment: .center
+                        )
+                        .font(isPersian ? .custom("Vazirmatn-Regular", size: 11) : .system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .opacity(musicManager.isPlaying ? 1 : 0.5)
+                        .animation(.easeInOut(duration: 0.2), value: line)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                    }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
             }

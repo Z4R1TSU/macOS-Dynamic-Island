@@ -200,27 +200,48 @@ struct MusicControlsView: View {
                     let line: String = {
                         if musicManager.isFetchingLyrics { return "Loading lyrics…" }
                         if !musicManager.syncedLyrics.isEmpty {
-                            return musicManager.lyricLine(at: currentElapsed)
+                            let synced = musicManager.lyricLine(at: currentElapsed)
+                            if synced == "PRELUDE_MARKER" { return "PRELUDE_MARKER" }
+                            return synced
                         }
                         let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
                         return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
                     }()
+
                     let isPersian = line.unicodeScalars.contains { scalar in
                         let v = scalar.value
                         return v >= 0x0600 && v <= 0x06FF
                     }
-                    MarqueeText(
-                        .constant(line),
-                        font: .subheadline,
-                        nsFont: .subheadline,
-                        textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
-                        frameWidth: width
-                    )
-                    .font(isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline)
-                    .lineLimit(1)
-                    .opacity(musicManager.isPlaying ? 1 : 0)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                    .animation(.easeInOut(duration: 0.2), value: line)
+                    
+                    if line == "PRELUDE_MARKER" {
+                         HStack(spacing: 4) {
+                             Image(systemName: "music.quarternote.3")
+                                 .font(.system(size: 10))
+                                 .foregroundStyle(
+                                     LinearGradient(
+                                         colors: [.white.opacity(0.4), .white.opacity(0.8), .white.opacity(0.4)],
+                                         startPoint: .leading,
+                                         endPoint: .trailing
+                                     )
+                                 )
+                         }
+                         .frame(width: width, alignment: .leading)
+                         .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                    } else {
+                        MarqueeText(
+                            .constant(line),
+                            font: .system(size: 13, weight: .semibold, design: .rounded),
+                            nsFont: .headline,
+                            textColor: Color(nsColor: musicManager.avgColor)
+                                .ensureMinimumBrightness(factor: 0.8),
+                            frameWidth: width
+                        )
+                        .font(isPersian ? .custom("Vazirmatn-Regular", size: 13) : .system(size: 13, weight: .semibold, design: .rounded))
+                        .fontWeight(.semibold)
+                        .opacity(musicManager.isPlaying ? 1 : 0.5)
+                        .animation(.easeInOut(duration: 0.2), value: line)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                    }
                 }
             }
         }

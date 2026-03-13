@@ -526,19 +526,37 @@ class MusicManager: ObservableObject {
 
     func lyricLine(at elapsed: Double) -> String {
         guard !syncedLyrics.isEmpty else { return currentLyrics }
+        
+        // Add a small positive offset to elapsed time to ensure better sync
+        // Often system latency causes visual lyrics to lag slightly behind audio
+        let compensatedElapsed = elapsed + 0.25
+        
         // Binary search for last line with time <= elapsed
         var low = 0
         var high = syncedLyrics.count - 1
-        var idx = 0
+        var idx = -1
+        
         while low <= high {
             let mid = (low + high) / 2
-            if syncedLyrics[mid].time <= elapsed {
+            if syncedLyrics[mid].time <= compensatedElapsed {
                 idx = mid
                 low = mid + 1
             } else {
                 high = mid - 1
             }
         }
+        
+        // If before first lyric, show nothing or maybe title?
+        // Let's stick to showing nothing if it's really early, or the first line if close enough?
+        // Existing logic returned syncedLyrics[0] if idx was 0 (default).
+        // If idx is -1 (nothing found), it means we are before the first timestamp.
+        
+        if idx == -1 {
+            // Before first line: return a special marker or empty?
+            // The UI will handle "PRELUDE_MARKER" to show music notes
+            return "PRELUDE_MARKER"
+        }
+        
         return syncedLyrics[idx].text
     }
 
