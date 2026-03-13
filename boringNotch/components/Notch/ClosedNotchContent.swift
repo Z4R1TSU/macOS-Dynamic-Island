@@ -366,14 +366,7 @@ struct ClosedNotchLyricsView: View {
                 return v >= 0x0600 && v <= 0x06FF
             }
             
-            let lyricColor: Color = {
-                if playerColorTinting {
-                    return Color(nsColor: musicManager.avgColor)
-                        .ensureMinimumBrightness(factor: 0.5)
-                        .opacity(0.85)
-                }
-                return .gray.opacity(0.85)
-            }()
+            let lyricColor: Color = .white.opacity(0.6)
             
             GeometryReader { geometry in
                 ZStack {
