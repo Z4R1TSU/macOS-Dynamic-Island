@@ -230,17 +230,19 @@ struct MusicControlsView: View {
                     } else {
                         MarqueeText(
                             .constant(line),
-                            font: .system(size: 13, weight: .semibold, design: .rounded),
-                            nsFont: .headline,
-                            textColor: Color(nsColor: musicManager.avgColor)
-                                .ensureMinimumBrightness(factor: 0.8),
+                            font: .subheadline,
+                            nsFont: .subheadline,
+                            textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
                             frameWidth: width
                         )
-                        .font(isPersian ? .custom("Vazirmatn-Regular", size: 13) : .system(size: 13, weight: .semibold, design: .rounded))
-                        .fontWeight(.semibold)
-                        .opacity(musicManager.isPlaying ? 1 : 0.5)
+                        .font(isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline)
+                        .lineLimit(1)
+                        .opacity(musicManager.isPlaying ? 1 : 0)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                         .animation(.easeInOut(duration: 0.2), value: line)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                            .opacity(musicManager.isPlaying ? 1 : 0.5)
+                            .animation(.easeInOut(duration: 0.2), value: line)
+                            .transition(.opacity.animation(.easeInOut(duration: 0.5)))
                     }
                 }
             }

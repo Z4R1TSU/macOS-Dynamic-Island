@@ -529,7 +529,7 @@ class MusicManager: ObservableObject {
         
         // Add a small positive offset to elapsed time to ensure better sync
         // Often system latency causes visual lyrics to lag slightly behind audio
-        let compensatedElapsed = elapsed + 0.25
+        let compensatedElapsed = elapsed + 0.2
         
         // Binary search for last line with time <= elapsed
         var low = 0
