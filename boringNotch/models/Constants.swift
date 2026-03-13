@@ -170,6 +170,7 @@ extension Defaults.Keys {
     // MARK: Closed Notch Widgets
     static let closedNotchShowMarket = Key<Bool>("closedNotchShowMarket", default: false)
     static let closedNotchShowPomodoro = Key<Bool>("closedNotchShowPomodoro", default: false)
+    static let closedNotchShowLyrics = Key<Bool>("closedNotchShowLyrics", default: false)
 
     // MARK: Home Widgets (right column order)
     static let homeWidgets = Key<[HomeWidget]>("homeWidgets", default: HomeWidget.defaultOrder)

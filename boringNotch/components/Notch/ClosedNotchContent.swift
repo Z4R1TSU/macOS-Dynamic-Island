@@ -21,8 +21,13 @@ func closedWidgetShowMarket() -> Bool {
 }
 
 @MainActor
+func closedWidgetShowLyrics() -> Bool {
+    Defaults[.closedNotchShowLyrics] && Defaults[.enableLyrics]
+}
+
+@MainActor
 func hasAnyClosedWidgetContent() -> Bool {
-    closedWidgetShowPomodoro() || closedWidgetShowMarket()
+    closedWidgetShowPomodoro() || closedWidgetShowMarket() || closedWidgetShowLyrics()
 }
 
 // MARK: - ClosedNotchWidgetBar (no music — widgets flank the notch cutout)
@@ -225,100 +230,171 @@ struct MusicLiveActivity: View {
     var gestureProgress: CGFloat = 0
 
     @Default(.useMusicVisualizer) var useMusicVisualizer
+    @Default(.closedNotchShowLyrics) var closedNotchShowLyrics
+    
+    private var totalWidth: CGFloat {
+        let albumArtWidth = max(0, vm.effectiveClosedNotchHeight - 12)
+        let centerWidth = vm.closedNotchSize.width - cornerRadiusInsets.closed.top
+        let visualizerWidth = max(0, vm.effectiveClosedNotchHeight - 12)
+        return albumArtWidth + centerWidth + visualizerWidth + 10
+    }
 
     var body: some View {
-        HStack(spacing: 5) {
-            Image(nsImage: musicManager.albumArt)
-                .resizable()
-                .clipped()
-                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
-                )
-                .frame(
-                    width: max(0, vm.effectiveClosedNotchHeight - 12),
-                    height: max(0, vm.effectiveClosedNotchHeight - 12)
-                )
-                .opacity(musicManager.isLoadingArtwork ? 0.6 : 1.0)
-                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: musicManager.isLoadingArtwork)
+        VStack(spacing: 2) {
+            HStack(spacing: 5) {
+                Image(nsImage: musicManager.albumArt)
+                    .resizable()
+                    .clipped()
+                    .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
+                    )
+                    .frame(
+                        width: max(0, vm.effectiveClosedNotchHeight - 12),
+                        height: max(0, vm.effectiveClosedNotchHeight - 12)
+                    )
+                    .opacity(musicManager.isLoadingArtwork ? 0.6 : 1.0)
+                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: musicManager.isLoadingArtwork)
 
-            Rectangle()
-                .fill(.black)
-                .overlay(
-                    HStack(alignment: .top) {
-                        if coordinator.expandingView.show
-                            && coordinator.expandingView.type == .music
-                        {
-                            MarqueeText(
-                                .constant(musicManager.songTitle),
-                                textColor: Color(nsColor: musicManager.avgColor),
-                                minDuration: 0.4,
-                                frameWidth: 100
-                            )
-                            .opacity(
-                                (coordinator.expandingView.show
-                                    && Defaults[.sneakPeekStyles] == .inline)
-                                    ? 1 : 0
-                            )
-                            Spacer(minLength: vm.closedNotchSize.width)
-                            Text(musicManager.artistName)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .foregroundStyle(
-                                    Color(nsColor: musicManager.avgColor)
+                Rectangle()
+                    .fill(.black)
+                    .overlay(
+                        HStack(alignment: .top) {
+                            if coordinator.expandingView.show
+                                && coordinator.expandingView.type == .music
+                            {
+                                MarqueeText(
+                                    .constant(musicManager.songTitle),
+                                    textColor: Color(nsColor: musicManager.avgColor),
+                                    minDuration: 0.4,
+                                    frameWidth: 100
                                 )
                                 .opacity(
                                     (coordinator.expandingView.show
-                                        && coordinator.expandingView.type == .music
                                         && Defaults[.sneakPeekStyles] == .inline)
                                         ? 1 : 0
                                 )
+                                Spacer(minLength: vm.closedNotchSize.width)
+                                Text(musicManager.artistName)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .foregroundStyle(
+                                        Color(nsColor: musicManager.avgColor)
+                                    )
+                                    .opacity(
+                                        (coordinator.expandingView.show
+                                            && coordinator.expandingView.type == .music
+                                            && Defaults[.sneakPeekStyles] == .inline)
+                                            ? 1 : 0
+                                    )
+                            }
                         }
-                    }
-                )
-                .frame(
-                    width: (coordinator.expandingView.show
-                        && coordinator.expandingView.type == .music
-                        && Defaults[.sneakPeekStyles] == .inline)
-                        ? 380
-                        : vm.closedNotchSize.width
-                            + -cornerRadiusInsets.closed.top
-                )
+                    )
+                    .frame(
+                        width: (coordinator.expandingView.show
+                            && coordinator.expandingView.type == .music
+                            && Defaults[.sneakPeekStyles] == .inline)
+                            ? 380
+                            : vm.closedNotchSize.width
+                                + -cornerRadiusInsets.closed.top
+                    )
 
-            HStack {
-                if useMusicVisualizer {
-                    Rectangle()
-                        .fill(
-                            Color(nsColor: musicManager.avgColor).gradient
-                        )
-                        .frame(width: 50, alignment: .center)
-                        .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
-                        .mask {
-                            AudioSpectrumView(isPlaying: $musicManager.isPlaying)
-                                .frame(width: 16, height: 12)
-                        }
-                } else {
-                    LottieAnimationContainer()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack {
+                    if useMusicVisualizer {
+                        Rectangle()
+                            .fill(
+                                Color(nsColor: musicManager.avgColor).gradient
+                            )
+                            .frame(width: 50, alignment: .center)
+                            .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
+                            .mask {
+                                AudioSpectrumView(isPlaying: $musicManager.isPlaying)
+                                    .frame(width: 16, height: 12)
+                            }
+                    } else {
+                        LottieAnimationContainer()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
+                .frame(
+                    width: max(
+                        0,
+                        vm.effectiveClosedNotchHeight - 12
+                            + gestureProgress / 2
+                    ),
+                    height: max(
+                        0,
+                        vm.effectiveClosedNotchHeight - 12
+                    ),
+                    alignment: .center
+                )
             }
             .frame(
-                width: max(
-                    0,
-                    vm.effectiveClosedNotchHeight - 12
-                        + gestureProgress / 2
-                ),
-                height: max(
-                    0,
-                    vm.effectiveClosedNotchHeight - 12
-                ),
+                height: vm.effectiveClosedNotchHeight,
                 alignment: .center
             )
+            
+            if closedNotchShowLyrics {
+                ClosedNotchLyricsView()
+                    .frame(width: totalWidth)
+            }
         }
-        .frame(
-            height: vm.effectiveClosedNotchHeight,
-            alignment: .center
-        )
+    }
+}
+
+// MARK: - ClosedNotchLyricsView
+
+struct ClosedNotchLyricsView: View {
+    @ObservedObject var musicManager = MusicManager.shared
+    @Default(.playerColorTinting) var playerColorTinting
+    
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.05)) { timeline in
+            let currentElapsed: Double = musicManager.estimatedPlaybackPosition(at: timeline.date)
+            let line: String = {
+                if musicManager.isFetchingLyrics { return "Loading lyrics…" }
+                if !musicManager.syncedLyrics.isEmpty {
+                    return musicManager.lyricLine(at: currentElapsed)
+                }
+                let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
+            }()
+            
+            let isPersian = line.unicodeScalars.contains { scalar in
+                let v = scalar.value
+                return v >= 0x0600 && v <= 0x06FF
+            }
+            
+            let lyricColor: Color = {
+                if playerColorTinting {
+                    return Color(nsColor: musicManager.avgColor)
+                        .ensureMinimumBrightness(factor: 0.5)
+                        .opacity(0.85)
+                }
+                return .gray.opacity(0.85)
+            }()
+            
+            GeometryReader { geometry in
+                ZStack {
+                    MarqueeText(
+                        .constant(line),
+                        font: .system(size: 11, weight: .medium),
+                        nsFont: .body,
+                        textColor: lyricColor,
+                        minDuration: 1.2,
+                        frameWidth: geometry.size.width,
+                        alignment: .center
+                    )
+                    .font(isPersian ? .custom("Vazirmatn-Regular", size: 11) : .system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .opacity(musicManager.isPlaying ? 1 : 0.5)
+                    .animation(.easeInOut(duration: 0.2), value: line)
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
+            }
+        }
+        .frame(height: 16)
+        .padding(.horizontal, 8)
     }
 }

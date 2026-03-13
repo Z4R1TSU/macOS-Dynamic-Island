@@ -181,7 +181,8 @@ struct MusicControlsView: View {
     private func songInfo(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             MarqueeText(
-                $musicManager.songTitle, font: .headline, nsFont: .headline, textColor: .white,
+                $musicManager.songTitle, font: .headline, nsFont: .headline,
+                textColor: Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.8),
                 frameWidth: width)
             MarqueeText(
                 $musicManager.artistName,

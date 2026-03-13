@@ -600,6 +600,7 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
 
     @Default(.enableLyrics) var enableLyrics
+    @Default(.closedNotchShowLyrics) var closedNotchShowLyrics
 
     var body: some View {
         Form {
@@ -685,6 +686,13 @@ struct Media: View {
                         customBadge(text: "Beta")
                     }
                 }
+                Defaults.Toggle(key: .closedNotchShowLyrics) {
+                    HStack {
+                        Text("Show lyrics in closed notch")
+                        customBadge(text: "Beta")
+                    }
+                }
+                .disabled(!Defaults[.enableLyrics])
             } header: {
                 Text("Media controls")
             }  footer: {

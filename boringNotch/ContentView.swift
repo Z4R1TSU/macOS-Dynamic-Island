@@ -73,6 +73,10 @@ struct ContentView: View {
         if closedWidgetShowMarket() { count += 1 }
         return count
     }
+    
+    private var showLyricsInClosedNotch: Bool {
+        Defaults[.closedNotchShowLyrics] && Defaults[.enableLyrics]
+    }
 
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
