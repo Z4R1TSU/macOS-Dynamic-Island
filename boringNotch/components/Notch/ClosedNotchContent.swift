@@ -349,6 +349,9 @@ struct ClosedNotchLyricsView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @Default(.playerColorTinting) var playerColorTinting
     
+    // State to track if we should hide the "No lyrics found" message
+    @State private var shouldHideNoLyrics: Bool = false
+    
     var body: some View {
         TimelineView(.animation(minimumInterval: 0.05)) { timeline in
             let currentElapsed: Double = musicManager.estimatedPlaybackPosition(at: timeline.date)
@@ -360,52 +363,95 @@ struct ClosedNotchLyricsView: View {
                     return synced
                 }
                 let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+                // If no lyrics, return "No lyrics found" so we can detect it, but we might hide it based on state
                 return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
             }()
             
-            let isPersian = line.unicodeScalars.contains { scalar in
-                let v = scalar.value
-                return v >= 0x0600 && v <= 0x06FF
-            }
+            // Logic to determine if we should show content:
+            // 1. If line is valid content (not empty, not "No lyrics found"), show it.
+            // 2. If line is "No lyrics found":
+            //    - If we have NOT shown it before for this song (or user re-enabled), show it.
+            //    - Once we hide it, we set a flag so it stays hidden for this song session.
             
-            let lyricColor: Color = .white.opacity(0.6)
+            let isNoLyrics = (line == "No lyrics found")
+            let showContent = !line.isEmpty && (!isNoLyrics || !musicManager.hasShownNoLyrics)
             
-            GeometryReader { geometry in
-                ZStack {
-                    if line == "PRELUDE_MARKER" {
-                        HStack(spacing: 4) {
-                            Image(systemName: "music.quarternote.3")
-                                .font(.system(size: 10))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.4), .white.opacity(0.8), .white.opacity(0.4)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+            // Only show if we have content to show
+            if showContent {
+                let isPersian = line.unicodeScalars.contains { scalar in
+                    let v = scalar.value
+                    return v >= 0x0600 && v <= 0x06FF
+                }
+                
+                let lyricColor: Color = .white.opacity(0.6)
+                
+                GeometryReader { geometry in
+                    ZStack {
+                        if line == "PRELUDE_MARKER" {
+                            HStack(spacing: 4) {
+                                Image(systemName: "music.quarternote.3")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [.white.opacity(0.4), .white.opacity(0.8), .white.opacity(0.4)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
                                     )
-                                )
+                            }
+                            .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                        } else {
+                            MarqueeText(
+                                .constant(line),
+                                font: .system(size: 11, weight: .medium),
+                                nsFont: .body,
+                                textColor: lyricColor,
+                                minDuration: 1.2,
+                                frameWidth: geometry.size.width,
+                                alignment: .center
+                            )
+                            .font(isPersian ? .custom("Vazirmatn-Regular", size: 11) : .system(size: 11, weight: .medium))
+                            .lineLimit(1)
+                            .opacity(musicManager.isPlaying ? 1 : 0.5)
+                            .animation(.easeInOut(duration: 0.2), value: line)
+                            .transition(.opacity.animation(.easeInOut(duration: 0.5)))
                         }
-                        .transition(.opacity.animation(.easeInOut(duration: 0.5)))
-                    } else {
-                        MarqueeText(
-                            .constant(line),
-                            font: .system(size: 11, weight: .medium),
-                            nsFont: .body,
-                            textColor: lyricColor,
-                            minDuration: 1.2,
-                            frameWidth: geometry.size.width,
-                            alignment: .center
-                        )
-                        .font(isPersian ? .custom("Vazirmatn-Regular", size: 11) : .system(size: 11, weight: .medium))
-                        .lineLimit(1)
-                        .opacity(musicManager.isPlaying ? 1 : 0.5)
-                        .animation(.easeInOut(duration: 0.2), value: line)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.5)))
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
+                }
+                .transition(.opacity) // Fade out when disappearing
+                .onChange(of: line) { newLine in
+                    if newLine == "No lyrics found" {
+                        // Start timer to hide permanently for this song
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                musicManager.hasShownNoLyrics = true
+                            }
+                        }
+                    } else if !newLine.isEmpty {
+                        // Reset if valid lyrics appear (e.g. late load)
+                        if musicManager.hasShownNoLyrics {
+                            withAnimation {
+                                musicManager.hasShownNoLyrics = false
+                            }
+                        }
                     }
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
+                .onAppear {
+                     if line == "No lyrics found" && !musicManager.hasShownNoLyrics {
+                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                             withAnimation(.easeInOut(duration: 0.5)) {
+                                 musicManager.hasShownNoLyrics = true
+                             }
+                         }
+                     }
+                }
+                .frame(height: 16)
+                .padding(.horizontal, 8)
+            } else {
+                 Color.clear.frame(height: 0) // Collapse when empty or hidden
             }
         }
-        .frame(height: 16)
-        .padding(.horizontal, 8)
+        .animation(.easeInOut(duration: 0.3), value: musicManager.currentLyrics) // Smooth transition for container
     }
 }

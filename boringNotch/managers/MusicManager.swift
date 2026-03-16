@@ -52,6 +52,8 @@ class MusicManager: ObservableObject {
     @Published var currentLyrics: String = ""
     @Published var isFetchingLyrics: Bool = false
     @Published var syncedLyrics: [(time: Double, text: String)] = []
+    // Add state to track if we've already shown "No lyrics found" for the current song
+    @Published var hasShownNoLyrics: Bool = false
     @Published var canFavoriteTrack: Bool = false
     @Published var isFavoriteTrack: Bool = false
 
@@ -358,6 +360,13 @@ class MusicManager: ObservableObject {
 
     // MARK: - Lyrics
     private func fetchLyricsIfAvailable(bundleIdentifier: String?, title: String, artist: String) {
+        // Reset hasShownNoLyrics when fetching new song
+        if title != songTitle || artist != artistName {
+             DispatchQueue.main.async {
+                 self.hasShownNoLyrics = false
+             }
+        }
+        
         guard Defaults[.enableLyrics], !title.isEmpty else {
             DispatchQueue.main.async {
                 self.isFetchingLyrics = false
