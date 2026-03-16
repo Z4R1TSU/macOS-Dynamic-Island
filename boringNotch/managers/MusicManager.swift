@@ -251,7 +251,7 @@ class MusicManager: ObservableObject {
             }
 
             // Fetch lyrics on content change
-            self.fetchLyricsIfAvailable(bundleIdentifier: state.bundleIdentifier, title: state.title, artist: state.artist)
+            self.fetchLyricsIfAvailable(bundleIdentifier: state.bundleIdentifier, title: state.title, artist: state.artist, album: state.album, duration: state.duration)
         }
 
         let timeChanged = state.currentTime != self.elapsedTime
@@ -359,7 +359,7 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Lyrics
-    private func fetchLyricsIfAvailable(bundleIdentifier: String?, title: String, artist: String) {
+    private func fetchLyricsIfAvailable(bundleIdentifier: String?, title: String, artist: String, album: String, duration: Double) {
         // Reset hasShownNoLyrics when fetching new song
         if title != songTitle || artist != artistName {
              DispatchQueue.main.async {
@@ -380,7 +380,7 @@ class MusicManager: ObservableObject {
             Task { @MainActor in
                 let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music")
                 guard !runningApps.isEmpty else {
-                    await self.fetchLyricsFromWeb(title: title, artist: artist)
+                    await self.fetchLyricsFromWeb(title: title, artist: artist, album: album, duration: duration)
                     return
                 }
 
@@ -418,69 +418,31 @@ class MusicManager: ObservableObject {
                 } catch {
                     // fall through to web lookup
                 }
-                await self.fetchLyricsFromWeb(title: title, artist: artist)
+                await self.fetchLyricsFromWeb(title: title, artist: artist, album: album, duration: duration)
             }
         } else {
             Task { @MainActor in
                 self.isFetchingLyrics = true
                 self.currentLyrics = ""
-                await self.fetchLyricsFromWeb(title: title, artist: artist)
+                await self.fetchLyricsFromWeb(title: title, artist: artist, album: album, duration: duration)
             }
         }
-    }
-
-    private func normalizedQuery(_ string: String) -> String {
-        string
-            .folding(options: .diacriticInsensitive, locale: .current)
-            .replacingOccurrences(of: "\u{FFFD}", with: "")
     }
 
     @MainActor
-    private func fetchLyricsFromWeb(title: String, artist: String) async {
-        let cleanTitle = normalizedQuery(title)
-        let cleanArtist = normalizedQuery(artist)
-        guard let encodedTitle = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let encodedArtist = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+    private func fetchLyricsFromWeb(title: String, artist: String, album: String, duration: Double) async {
+        guard let result = await LyricsManager.shared.fetchLyrics(title: title, artist: artist, album: album, duration: duration) else {
             self.currentLyrics = ""
             self.isFetchingLyrics = false
+            self.syncedLyrics = []
             return
         }
-
-        // LRCLIB simple search (no auth): https://lrclib.net/api/search?track_name=...&artist_name=...
-        let urlString = "https://lrclib.net/api/search?track_name=\(encodedTitle)&artist_name=\(encodedArtist)"
-        guard let url = URL(string: urlString) else {
-            self.currentLyrics = ""
-            self.isFetchingLyrics = false
-            return
-        }
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                self.currentLyrics = ""
-                self.isFetchingLyrics = false
-                return
-            }
-            if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-               let first = jsonArray.first {
-                // Prefer plain lyrics (syncedLyrics may also be present)
-                let plain = (first["plainLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let synced = (first["syncedLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let resolved = plain.isEmpty ? synced : plain
-                self.currentLyrics = resolved
-                self.isFetchingLyrics = false
-                if !synced.isEmpty {
-                    self.syncedLyrics = self.parseLRC(synced)
-                } else {
-                    self.syncedLyrics = []
-                }
-            } else {
-                self.currentLyrics = ""
-                self.isFetchingLyrics = false
-                self.syncedLyrics = []
-            }
-        } catch {
-            self.currentLyrics = ""
-            self.isFetchingLyrics = false
+        
+        self.currentLyrics = result.plainLyrics
+        self.isFetchingLyrics = false
+        if !result.syncedLyrics.isEmpty {
+            self.syncedLyrics = self.parseLRC(result.syncedLyrics)
+        } else {
             self.syncedLyrics = []
         }
     }
@@ -498,7 +460,25 @@ class MusicManager: ObservableObject {
         var result: [(Double, String)] = []
         guard let regex = Self.lrcRegex else { return [] }
         
-        lrc.split(separator: "\n").forEach { lineSub in
+        let lines = lrc.split(separator: "\n")
+        var globalOffset: Double = 0
+        
+        // Check for global offset tag [offset: +/-ms]
+        for lineSub in lines {
+            let line = String(lineSub).trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("[offset:") {
+                if let endIdx = line.firstIndex(of: "]") {
+                    let startIdx = line.index(line.startIndex, offsetBy: 8) // "[offset:".count
+                    let offsetStr = String(line[startIdx..<endIdx])
+                    if let val = Double(offsetStr) {
+                        // Offset is in milliseconds. Positive value shifts timestamps later.
+                        globalOffset = val / 1000.0
+                    }
+                }
+            }
+        }
+        
+        lines.forEach { lineSub in
             let line = String(lineSub)
             let nsLine = line as NSString
             if let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: nsLine.length)) {
@@ -522,7 +502,7 @@ class MusicManager: ObservableObject {
                     }
                 }
                 
-                let time = minutes * 60 + seconds + fractional
+                let time = minutes * 60 + seconds + fractional + globalOffset
                 let textStart = match.range.location + match.range.length
                 let text = nsLine.substring(from: textStart).trimmingCharacters(in: .whitespaces)
                 if !text.isEmpty {
@@ -538,7 +518,7 @@ class MusicManager: ObservableObject {
         
         // Add a small positive offset to elapsed time to ensure better sync
         // Often system latency causes visual lyrics to lag slightly behind audio
-        let compensatedElapsed = elapsed + 0.2
+        let compensatedElapsed = elapsed + 0.25
         
         // Binary search for last line with time <= elapsed
         var low = 0
@@ -815,6 +795,307 @@ class MusicManager: ObservableObject {
                     self.volume = currentVolume
                 }
             }
+        }
+    }
+}
+// MARK: - Lyrics Manager Implementation
+
+struct LyricsResult {
+    let plainLyrics: String
+    let syncedLyrics: String
+    let source: String
+}
+
+protocol LyricsProvider {
+    var name: String { get }
+    var priority: Int { get } // Higher is better
+    func fetchLyrics(title: String, artist: String, album: String, duration: Double) async -> LyricsResult?
+}
+
+class LyricsManager {
+    static let shared = LyricsManager()
+    
+    private let providers: [LyricsProvider] = [
+        QQMusicLyricsProvider(),
+        NetEaseLyricsProvider(),
+        LRCLibLyricsProvider()
+    ]
+    
+    func fetchLyrics(title: String, artist: String, album: String, duration: Double) async -> LyricsResult? {
+        // Create tasks for all providers
+        let tasks = providers.map { provider in
+            Task {
+                await provider.fetchLyrics(title: title, artist: artist, album: album, duration: duration)
+            }
+        }
+        
+        // Wait for all tasks to complete
+        var results: [LyricsResult] = []
+        for task in tasks {
+            if let result = await task.value {
+                results.append(result)
+            }
+        }
+        
+        // Sort results by provider priority
+        // We can map back to provider priority based on source name or just store priority in result
+        // Let's rely on the provider order or add priority to result.
+        // But since providers list is static, we can look up priority.
+        
+        let sortedResults = results.sorted { r1, r2 in
+            let p1 = providers.first(where: { $0.name == r1.source })?.priority ?? 0
+            let p2 = providers.first(where: { $0.name == r2.source })?.priority ?? 0
+            return p1 > p2
+        }
+        
+        return sortedResults.first
+    }
+    
+    // Helper to normalize strings for comparison
+    static func normalize(_ string: String) -> String {
+        string.folding(options: .diacriticInsensitive, locale: .current)
+            .replacingOccurrences(of: "\u{FFFD}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+// MARK: - Providers
+
+class QQMusicLyricsProvider: LyricsProvider {
+    var name: String { "QQMusic" }
+    var priority: Int { 7 }
+    
+    func fetchLyrics(title: String, artist: String, album: String, duration: Double) async -> LyricsResult? {
+        let cleanTitle = LyricsManager.normalize(title)
+        let cleanArtist = LyricsManager.normalize(artist)
+        
+        // QQ Music Search
+        // URL: https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w={keyword}&t=0&n=5&p=1&format=json
+        guard let encodedQuery = "\(cleanTitle) \(cleanArtist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let searchUrl = URL(string: "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=\(encodedQuery)&t=0&n=5&p=1&format=json") else {
+            return nil
+        }
+        
+        var request = URLRequest(url: searchUrl)
+        request.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let dataObj = json["data"] as? [String: Any],
+                  let songObj = dataObj["song"] as? [String: Any],
+                  let list = songObj["list"] as? [[String: Any]],
+                  !list.isEmpty else {
+                return nil
+            }
+            
+            // Find best match
+            let bestMatch = findBestMatch(candidates: list, album: album, duration: duration)
+            guard let songmid = bestMatch["songmid"] as? String else { return nil }
+            
+            // Fetch Lyrics
+            // URL: https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid={songmid}&format=json&nobase64=1
+            guard let lyricsUrl = URL(string: "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=\(songmid)&format=json&nobase64=1") else {
+                return nil
+            }
+            
+            var lyricsRequest = URLRequest(url: lyricsUrl)
+            lyricsRequest.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
+            
+            let (lyricsData, _) = try await URLSession.shared.data(for: lyricsRequest)
+            guard let lyricsJson = try JSONSerialization.jsonObject(with: lyricsData) as? [String: Any],
+                  let lyric = lyricsJson["lyric"] as? String else {
+                return nil
+            }
+            
+            // QQ Music lyrics often contain HTML entities like &#10; or are just plain text
+            // In the curl test, it returned clean text, but let's be safe.
+            // Also it returns full LRC content.
+            
+            // Sometimes it returns trans (translation) as well.
+            let trans = lyricsJson["trans"] as? String ?? ""
+            
+            return LyricsResult(plainLyrics: lyric, syncedLyrics: lyric, source: name)
+            
+        } catch {
+            return nil
+        }
+    }
+    
+    private func findBestMatch(candidates: [[String: Any]], album: String, duration: Double) -> [String: Any] {
+        // Filter by duration if available (QQ Music 'interval' is in seconds)
+        let validCandidates = candidates.filter { candidate in
+            guard duration > 0, let interval = candidate["interval"] as? Int else { return true }
+            return abs(Double(interval) - duration) < 5.0
+        }
+        
+        if validCandidates.isEmpty {
+            // If no duration match, fallback to all candidates (maybe duration is wrong)
+            return candidates.first!
+        }
+        
+        // Try to match album
+        if !album.isEmpty, let albumMatch = validCandidates.first(where: { candidate in
+            guard let albumName = candidate["albumname"] as? String else { return false }
+            return albumName.localizedCaseInsensitiveContains(album) || album.localizedCaseInsensitiveContains(albumName)
+        }) {
+            return albumMatch
+        }
+        
+        return validCandidates.first!
+    }
+}
+
+class NetEaseLyricsProvider: LyricsProvider {
+    var name: String { "NetEase" }
+    var priority: Int { 10 }
+    
+    func fetchLyrics(title: String, artist: String, album: String, duration: Double) async -> LyricsResult? {
+        let cleanTitle = LyricsManager.normalize(title)
+        let cleanArtist = LyricsManager.normalize(artist)
+        
+        // NetEase Search
+        // URL: http://music.163.com/api/search/get/web?s={keyword}&type=1&offset=0&total=true&limit=5
+        guard let encodedQuery = "\(cleanTitle) \(cleanArtist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let searchUrl = URL(string: "http://music.163.com/api/search/get/web?s=\(encodedQuery)&type=1&offset=0&total=true&limit=5") else {
+            return nil
+        }
+        
+        var request = URLRequest(url: searchUrl)
+        request.setValue("http://music.163.com", forHTTPHeaderField: "Referer")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let result = json["result"] as? [String: Any],
+                  let songs = result["songs"] as? [[String: Any]],
+                  !songs.isEmpty else {
+                return nil
+            }
+            
+            // Find best match
+            let bestMatch = findBestMatch(candidates: songs, album: album, duration: duration)
+            guard let id = bestMatch["id"] as? Int else { return nil }
+            
+            // Fetch Lyrics
+            // URL: http://music.163.com/api/song/lyric?os=pc&id={id}&lv=-1&kv=-1&tv=-1
+            guard let lyricsUrl = URL(string: "http://music.163.com/api/song/lyric?os=pc&id=\(id)&lv=-1&kv=-1&tv=-1") else {
+                return nil
+            }
+            
+            var lyricsRequest = URLRequest(url: lyricsUrl)
+            lyricsRequest.setValue("http://music.163.com", forHTTPHeaderField: "Referer")
+            
+            let (lyricsData, _) = try await URLSession.shared.data(for: lyricsRequest)
+            guard let lyricsJson = try JSONSerialization.jsonObject(with: lyricsData) as? [String: Any],
+                  let lrc = lyricsJson["lrc"] as? [String: Any],
+                  let lyric = lrc["lyric"] as? String else {
+                return nil
+            }
+            
+            return LyricsResult(plainLyrics: lyric, syncedLyrics: lyric, source: name)
+            
+        } catch {
+            return nil
+        }
+    }
+    
+    private func findBestMatch(candidates: [[String: Any]], album: String, duration: Double) -> [String: Any] {
+        // Filter by duration if available (NetEase 'duration' is in milliseconds)
+        let validCandidates = candidates.filter { candidate in
+            guard duration > 0, let trackDuration = candidate["duration"] as? Int else { return true }
+            return abs(Double(trackDuration)/1000.0 - duration) < 5.0
+        }
+        
+        if validCandidates.isEmpty {
+            return candidates.first!
+        }
+        
+        // Try to match album
+        if !album.isEmpty, let albumMatch = validCandidates.first(where: { candidate in
+            guard let albumObj = candidate["album"] as? [String: Any],
+                  let albumName = albumObj["name"] as? String else { return false }
+            return albumName.localizedCaseInsensitiveContains(album) || album.localizedCaseInsensitiveContains(albumName)
+        }) {
+            return albumMatch
+        }
+        
+        return validCandidates.first!
+    }
+}
+
+class LRCLibLyricsProvider: LyricsProvider {
+    var name: String { "LRCLib" }
+    var priority: Int { 5 }
+    
+    func fetchLyrics(title: String, artist: String, album: String, duration: Double) async -> LyricsResult? {
+        let cleanTitle = LyricsManager.normalize(title)
+        let cleanArtist = LyricsManager.normalize(artist)
+        guard let encodedTitle = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedArtist = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return nil
+        }
+
+        let urlString = "https://lrclib.net/api/search?track_name=\(encodedTitle)&artist_name=\(encodedArtist)"
+        guard let url = URL(string: urlString) else { return nil }
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            
+            guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]], !jsonArray.isEmpty else {
+                return nil
+            }
+            
+            // Find best match logic (reused from previous implementation)
+            var selectedTrack: [String: Any]? = nil
+            
+            let validCandidates = jsonArray.filter { track in
+                guard duration > 0, let trackDuration = track["duration"] as? Double else { return true }
+                return abs(trackDuration - duration) < 3.0
+            }
+            
+            if !validCandidates.isEmpty {
+                if !album.isEmpty, let albumMatch = validCandidates.first(where: { track in
+                    guard let trackAlbum = track["albumName"] as? String else { return false }
+                    return trackAlbum.localizedCaseInsensitiveContains(album) || album.localizedCaseInsensitiveContains(trackAlbum)
+                }) {
+                    selectedTrack = albumMatch
+                } else {
+                    if let syncedMatch = validCandidates.first(where: { ($0["syncedLyrics"] as? String)?.isEmpty == false }) {
+                        selectedTrack = syncedMatch
+                    } else {
+                        selectedTrack = validCandidates.first
+                    }
+                }
+            } else {
+                var minDiff: Double = Double.greatestFiniteMagnitude
+                for track in jsonArray {
+                    if let trackDuration = track["duration"] as? Double {
+                        let diff = abs(trackDuration - duration)
+                        if diff < minDiff {
+                            minDiff = diff
+                            selectedTrack = track
+                        }
+                    }
+                }
+                if selectedTrack == nil {
+                    selectedTrack = jsonArray.first
+                }
+            }
+            
+            guard let finalTrack = selectedTrack else { return nil }
+            
+            let plain = (finalTrack["plainLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let synced = (finalTrack["syncedLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let resolved = plain.isEmpty ? synced : plain
+            
+            if resolved.isEmpty { return nil }
+            
+            return LyricsResult(plainLyrics: resolved, syncedLyrics: synced, source: name)
+            
+        } catch {
+            return nil
         }
     }
 }
