@@ -194,7 +194,7 @@ struct MusicControlsView: View {
                 frameWidth: width
             )
             .fontWeight(.regular)
-            if Defaults[.enableLyrics] {
+            if Defaults[.enableLyrics] && !musicManager.isInstrumental {
                 TimelineView(.animation(minimumInterval: 0.05)) { timeline in
                     let currentElapsed: Double = musicManager.estimatedPlaybackPosition(at: timeline.date)
                     let line: String = {

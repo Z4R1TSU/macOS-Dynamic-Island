@@ -372,9 +372,10 @@ struct ClosedNotchLyricsView: View {
             // 2. If line is "No lyrics found":
             //    - If we have NOT shown it before for this song (or user re-enabled), show it.
             //    - Once we hide it, we set a flag so it stays hidden for this song session.
+            // 3. If instrumental, hide completely.
             
             let isNoLyrics = (line == "No lyrics found")
-            let showContent = !line.isEmpty && (!isNoLyrics || !musicManager.hasShownNoLyrics)
+            let showContent = !musicManager.isInstrumental && !line.isEmpty && (!isNoLyrics || !musicManager.hasShownNoLyrics)
             
             // Only show if we have content to show
             if showContent {
